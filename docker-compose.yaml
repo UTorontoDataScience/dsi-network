@@ -1,0 +1,13 @@
+version: "3"
+services:
+  react:
+    image: "node:latest"
+    working_dir: /usr/app
+    user: "node"
+    volumes:
+      - ./react:/usr/app
+    ports:
+      - "4004:4004"
+    entrypoint: "yarn start"
+    environment:
+      - PORT=4004

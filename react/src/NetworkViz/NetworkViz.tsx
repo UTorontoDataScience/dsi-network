@@ -2,9 +2,9 @@ import React, { useEffect, useLayoutEffect, useState } from "react";
 import d3, { select } from "d3";
 import getModel, {
   AcademicProgram,
+  Campus,
   Division,
   EntityType,
-  Link,
   Model,
   Person,
   Relationship,
@@ -13,7 +13,7 @@ import getModel, {
 
 const Chart: React.FC = () => {
   const [model, setModel] = useState<Model>();
-  const [packableData, setPackableData] = useState<PackableData>();
+  const [packableData, setPackableData] = useState<PackableNode>();
 
   useLayoutEffect(() => {
     buildPackChart("test", 600, 1000);
@@ -38,51 +38,90 @@ const Chart: React.FC = () => {
   return <span id="test" />;
 };
 
-interface PackableBase {
-  name: Relationship;
-}
+type NumberOrString = number | string;
+export const groupBy = <
+  T extends { [key: NumberOrString]: any },
+  K extends keyof T
+>(
+  data: T[],
+  key: T[K] extends NumberOrString ? K : never
+) => {
+  return data.reduce<{ [key: NumberOrString]: T[] }>(
+    (acc, curr) => ({
+      ...acc,
+      [curr[key]]: acc[curr[key]] ? acc[curr[key]].concat(curr) : [curr],
+    }),
+    {}
+  );
+};
 
 /* value is count --> start with people */
-interface PackableLeafNode extends PackableBase {
+interface PackableLeafNode {
+  relationship: Relationship;
   value: number;
 }
 
-type PackableDataChild = PackableData | PackableLeafNode;
-interface PackableData extends PackableBase {
-  children: PackableDataChild[];
+type PackableNodeChild = PackableNode | PackableLeafNode;
+interface PackableNode {
+  children: PackableNodeChild[];
+  entity: ModelEntity;
+  relationToParent: Relationship | "root";
+  type: EntityType;
 }
 
-const findChildren = (
+const makeNode = (
+  rootId: number,
+  relationship: Relationship | "root",
   hierarchy: EntityType[],
-  links: HydratedLink[]
-): PackableDataChild[] => {
-  const name = hierarchy.shift();
-  const childName = hierarchy[0];
+  links: HydratedLink[],
+  idx = 0
+): PackableNode => {
+  // we should iterate through hierarchy till we find children, since the link might skip a generation
+  const rootEntityType = hierarchy[idx];
+  const childEntityType = hierarchy[idx + 1];
 
-  // note when cleaning up that this is all you need, can combine entries checks with reduce here and be done
-  const byRelationship = links
-    .filter((l) => l.parentType === name && l.childType === childName)
-    .reduce(
-      (acc, curr) => ({
-        ...acc,
-        [curr.relationship]: acc[curr.relationship]
-          ? acc[curr.relationship] + 1
-          : 1,
-      }),
-      {} as { [K in Relationship]: number }
-    );
+  const rootEntity = links.find(
+    (l) => l.parentType === rootEntityType && l.parent.id === rootId
+  )?.parent;
 
-  if (hierarchy.length > 1) {
-    return Object.keys(byRelationship).map((k) => ({
-      name: k as Relationship,
-      children: findChildren(hierarchy, links),
-    }));
+  if (!rootEntity) {
+    //this should have the effect of racing to end, but in future we might want to skip ahead in the hierarchy \
+    //and look for children in the next level
+    return makeNode(rootId, relationship, hierarchy, links, idx + 1);
   }
 
-  return Object.entries(byRelationship).map(([k, v]) => ({
-    name: k as Relationship,
-    value: v,
-  }));
+  const childLinks = links.filter(
+    (l) =>
+      l.parentType === rootEntityType &&
+      l.childType === childEntityType &&
+      l.parent.id === rootId
+  );
+
+  // todo: should be implemented only when we have leafs
+  const counts = childLinks.reduce(
+    (acc, curr) => ({
+      ...acc,
+      [curr.relationship]: acc[curr.relationship]
+        ? acc[curr.relationship] + 1
+        : 1,
+    }),
+    {} as { [K in Relationship]: number }
+  );
+
+  const recurse = idx < hierarchy.length - 2;
+
+  const res: PackableNode = {
+    entity: rootEntity,
+    relationToParent: relationship,
+    type: rootEntityType,
+    children: recurse
+      ? childLinks.map((c) =>
+          makeNode(c.child.id, c.relationship, hierarchy, links, idx + 1)
+        )
+      : getKeys(counts).map((k) => ({ relationship: k, value: counts[k] })),
+  };
+
+  return res;
 };
 
 type ModelEntity = Unit | Division | Person | AcademicProgram;
@@ -100,7 +139,7 @@ type ModelMap = { [K in keyof Model]: { [id: number]: ModelEntity } };
 const getKeys = <T,>(obj: T) => Object.keys(obj) as (keyof T)[];
 
 /* division, unit, program, person, relationship-type-count */
-const makePackableData = (model: Model): PackableData => {
+const makePackableData = (model: Model): PackableNode => {
   const { links, ...modelsToHydrate } = model;
 
   const modelMap = getKeys(modelsToHydrate).reduce<ModelMap>(
@@ -127,12 +166,14 @@ const makePackableData = (model: Model): PackableData => {
     relationship: l.relationship,
   }));
 
-  const root = {
-    name: "root" as Relationship, // oof
-    children: findChildren(["division", "unit", "program", "person"], hydrated),
-  };
+  const stGeorge = model.campus.find((c) => c.name.includes("eorge")) as Campus;
 
-  return root;
+  return makeNode(
+    stGeorge.id,
+    "root",
+    ["campus", "division", "unit", "program", "person"],
+    hydrated
+  );
 };
 
 const buildPackChart = (id: string, height: number, width: number) => {

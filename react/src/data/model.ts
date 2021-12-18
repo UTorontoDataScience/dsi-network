@@ -59,19 +59,19 @@ const transformPrograms = (data: AcademicProgramsData[]) =>
     is_resource: strToBool(u.type_resource),
   }));
 
-interface Person {
+export interface Person {
   id: number;
   firstName: string;
   lastName: string;
   contact: string;
 }
 
-interface Division {
+export interface Division {
   id: number;
   name: string;
 }
 
-interface Unit {
+export interface Unit {
   id: number;
   divisionId: number;
   name: string;
@@ -84,15 +84,18 @@ const makePerson = (): Person => ({
   lastName: faker.name.lastName(),
 });
 
-export interface Model {
-  divisions: Division[];
-  links: Link[];
-  people: Person[];
-  programs: AcademicProgram[];
-  units: Unit[];
+export interface EntityDict {
+  division: Division[];
+  person: Person[];
+  program: AcademicProgram[];
+  unit: Unit[];
 }
 
-type Relationship =
+export interface Model extends EntityDict {
+  links: Link[];
+}
+
+export type Relationship =
   | "affiliate"
   | "department"
   | "fellow"
@@ -107,9 +110,9 @@ type Relationship =
   | "support"
   | "undergraduate";
 
-type EntityType = "person" | "program" | "unit" | "division";
+export type EntityType = keyof EntityDict;
 
-interface Link {
+export interface Link {
   uId: number;
   uType: EntityType;
   vId: number;
@@ -119,15 +122,15 @@ interface Link {
 
 const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
   const links: Link[] = [];
-  const people: Person[] = [];
-  const divisions = [...new Set(programs.map((u) => u.division))]
+  const person: Person[] = [];
+  const division = [...new Set(programs.map((u) => u.division))]
     .filter(Boolean)
     .map((d, id) => ({
       name: d,
       id,
     }));
-  const units = [...new Set(programs.filter((p) => !!p.unit))].map((p, id) => ({
-    divisionId: divisions.find((d) => d.name === p.division)?.id,
+  const unit = [...new Set(programs.filter((p) => !!p.unit))].map((p, id) => ({
+    divisionId: division.find((d) => d.name === p.division)?.id,
     id,
     name: p.unit,
   })) as Unit[];
@@ -140,17 +143,17 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     const _people = Array(faker.datatype.number({ min: 1, max: maxCount }))
       .fill(null)
       .map(() => {
-        const person = makePerson();
-        people.push(person);
+        const _person = makePerson();
+        person.push(_person);
         const link = {
           uId: program.id,
           uType: "program" as EntityType,
-          vId: person.id,
+          vId: _person.id,
           vType: "person" as EntityType,
           relationship: relationship,
         };
         links.push(link);
-        return person;
+        return _person;
       });
     return _people;
   };
@@ -201,18 +204,18 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
   });
 
   // divisions are parents of units (assuming for now they're all departments)
-  units.forEach((u) =>
+  unit.forEach((u) =>
     createLink(u.divisionId, u.id, "division", "unit", "department")
   );
 
   // units (departments) are parents of programs
   programs.forEach((p) => {
     let divisionId: number | undefined;
-    const unitId = p.unit ? units.find((u) => u.name === p.unit)?.id : null;
+    const unitId = p.unit ? unit.find((u) => u.name === p.unit)?.id : null;
     if (unitId) {
       createLink(unitId, p.id, "unit", "program", "program");
     } else {
-      divisionId = divisions.find((d) => p.division === d.name)?.id;
+      divisionId = division.find((d) => p.division === d.name)?.id;
     }
     if (divisionId) {
       createLink(divisionId, p.id, "division", "program", "program");
@@ -223,7 +226,7 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     .filter((l) => l.relationship === "professor")
     .map((l) => l.vId);
 
-  const professors = people.filter((p) => professorLinks.includes(p.id));
+  const professors = person.filter((p) => professorLinks.includes(p.id));
 
   const researcherLinks = links
     .filter((l) =>
@@ -233,7 +236,7 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     )
     .map((l) => l.vId);
 
-  const researchers = people.filter((p) => researcherLinks.includes(p.id));
+  const researchers = person.filter((p) => researcherLinks.includes(p.id));
 
   //make some random professors PIs in research programs
   programs.forEach((p) => {
@@ -264,15 +267,15 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     }
   });
 
-  return { divisions, links, people, units };
+  return { division, links, person, unit };
 };
 const getModel = async (): Promise<Model> => {
   const programData = await fetchAcademicProgramsData();
-  const programs = transformPrograms(programData);
+  const program = transformPrograms(programData);
 
   const results = {
-    programs,
-    ...createPeopleDivisionsLinksAndUnits(programs),
+    program,
+    ...createPeopleDivisionsLinksAndUnits(program),
   };
 
   return results;

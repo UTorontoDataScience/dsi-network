@@ -216,6 +216,14 @@ const buildPackChart = (
 
   const margin = { top: 10, right: 10, bottom: 20, left: 40 };
 
+  const getLabel = (node: PackableNodeChild) => {
+    if (node.hasOwnProperty("relationship")) {
+      return (node as PackableLeafNode).relationship;
+    } else if (node.hasOwnProperty("entity")) {
+      return (node as PackableNode).entity.name;
+    }
+  };
+
   const color = scaleLinear()
     .domain([0, 5])
     // @ts-ignore
@@ -258,7 +266,7 @@ const buildPackChart = (
     .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")")
     // todo: every entity also needs a typelabel, including leaves
     .text((d) =>
-      d.value ? `${d.data?.entity?.id}: ${d.value}` : ""
+      d.value ? `${getLabel(d.data)}: ${d.value}` : ""
     ) as Selection<
     SVGTextElement,
     HierarchyCircularNode<PackableNode>,

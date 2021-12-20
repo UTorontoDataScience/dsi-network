@@ -39,6 +39,7 @@ export interface AcademicProgram extends AcademicProgramsData {
   is_research: boolean;
   is_resource: boolean;
   is_education: boolean;
+  name: string;
 }
 
 const fetchAcademicProgramsData = async () => {
@@ -57,13 +58,13 @@ const transformPrograms = (data: AcademicProgramsData[]) =>
     is_education: strToBool(u.type_education),
     is_research: strToBool(u.type_research),
     is_resource: strToBool(u.type_resource),
+    name: u.program,
   }));
 
 export interface Person {
-  id: number;
-  firstName: string;
-  lastName: string;
   contact: string;
+  id: number;
+  name: string;
 }
 
 export interface Campus {
@@ -85,9 +86,8 @@ export interface Unit {
 
 const makePerson = (): Person => ({
   contact: faker.internet.email(),
-  firstName: faker.name.firstName(),
+  name: `${faker.name.firstName()} ${faker.name.lastName()}`,
   id: faker.unique(faker.datatype.number),
-  lastName: faker.name.lastName(),
 });
 
 export interface EntityDict {

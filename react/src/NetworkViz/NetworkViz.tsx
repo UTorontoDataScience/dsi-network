@@ -1,5 +1,14 @@
 import React, { useEffect, useLayoutEffect, useState } from "react";
-import d3, { select } from "d3";
+import {
+  create,
+  HierarchyCircularNode,
+  interpolateHcl,
+  interpolateZoom,
+  scaleLinear,
+  select,
+  Selection,
+} from "d3";
+import { pack, hierarchy } from "d3-hierarchy";
 import getModel, {
   AcademicProgram,
   Campus,
@@ -16,8 +25,10 @@ const Chart: React.FC = () => {
   const [packableData, setPackableData] = useState<PackableNode>();
 
   useLayoutEffect(() => {
-    buildPackChart("test", 600, 1000);
-  }, []);
+    if (packableData) {
+      buildPackChart("test", packableData, 600, 1000);
+    }
+  }, [packableData]);
 
   useEffect(() => {
     const _getModel = async () => {
@@ -29,6 +40,7 @@ const Chart: React.FC = () => {
 
   useEffect(() => {
     if (model) {
+      console.log("starting");
       setPackableData(makePackableData(model));
     }
   }, [model]);
@@ -69,56 +81,52 @@ interface PackableNode {
   type: EntityType;
 }
 
+const getLeafs = (links: HydratedLink[], leafType: EntityType) => {
+  const counts = links
+    .filter((cl) => cl.childType === leafType)
+    .reduce(
+      (acc, curr) => ({
+        ...acc,
+        [curr.relationship]: acc[curr.relationship]
+          ? acc[curr.relationship] + 1
+          : 1,
+      }),
+      {} as { [K in Relationship]: number }
+    );
+
+  return getKeys(counts).map((k) => ({
+    relationship: k,
+    value: counts[k],
+  })) as PackableLeafNode[];
+};
+
 const makeNode = (
   rootId: number,
+  rootType: EntityType,
+  leafType: EntityType,
   relationship: Relationship | "root",
-  hierarchy: EntityType[],
-  links: HydratedLink[],
-  idx = 0
+  links: HydratedLink[]
 ): PackableNode => {
-  // we should iterate through hierarchy till we find children, since the link might skip a generation
-  const rootEntityType = hierarchy[idx];
-  const childEntityType = hierarchy[idx + 1];
-
   const rootEntity = links.find(
-    (l) => l.parentType === rootEntityType && l.parent.id === rootId
-  )?.parent;
-
-  if (!rootEntity) {
-    //this should have the effect of racing to end, but in future we might want to skip ahead in the hierarchy \
-    //and look for children in the next level
-    return makeNode(rootId, relationship, hierarchy, links, idx + 1);
-  }
+    (l) => l.parentType === rootType && l.parent.id === rootId
+  )?.parent!;
 
   const childLinks = links.filter(
-    (l) =>
-      l.parentType === rootEntityType &&
-      l.childType === childEntityType &&
-      l.parent.id === rootId
+    (l) => l.parentType === rootType && l.parent.id === rootId
   );
 
-  // todo: should be implemented only when we have leafs
-  const counts = childLinks.reduce(
-    (acc, curr) => ({
-      ...acc,
-      [curr.relationship]: acc[curr.relationship]
-        ? acc[curr.relationship] + 1
-        : 1,
-    }),
-    {} as { [K in Relationship]: number }
-  );
-
-  const recurse = idx < hierarchy.length - 2;
+  const parents = childLinks.filter((cl) => cl.childType !== leafType);
 
   const res: PackableNode = {
     entity: rootEntity,
     relationToParent: relationship,
-    type: rootEntityType,
-    children: recurse
-      ? childLinks.map((c) =>
-          makeNode(c.child.id, c.relationship, hierarchy, links, idx + 1)
-        )
-      : getKeys(counts).map((k) => ({ relationship: k, value: counts[k] })),
+    type: rootType,
+    children: [
+      ...parents.map((c) =>
+        makeNode(c.child.id, c.childType, leafType, c.relationship, links)
+      ),
+      ...getLeafs(childLinks, leafType),
+    ],
   };
 
   return res;
@@ -142,6 +150,10 @@ const getKeys = <T,>(obj: T) => Object.keys(obj) as (keyof T)[];
 const makePackableData = (model: Model): PackableNode => {
   const { links, ...modelsToHydrate } = model;
 
+  // this is the bottleneck -- can it be done server-side?
+  // would a map be faster?
+
+  //this should be done once and memoized
   const modelMap = getKeys(modelsToHydrate).reduce<ModelMap>(
     (acc, k) => ({
       ...acc,
@@ -166,23 +178,132 @@ const makePackableData = (model: Model): PackableNode => {
     relationship: l.relationship,
   }));
 
+  //problem is that we need only nodes that have persons as leaves
+  //can we use discovery to prune any links that don't have paths to persons?
+
   const stGeorge = model.campus.find((c) => c.name.includes("eorge")) as Campus;
 
-  return makeNode(
-    stGeorge.id,
-    "root",
-    ["campus", "division", "unit", "program", "person"],
-    hydrated
-  );
+  return makeNode(stGeorge.id, "campus", "person", "root", hydrated);
 };
 
-const buildPackChart = (id: string, height: number, width: number) => {
+const buildPackChart = (
+  id: string,
+  data: PackableNode,
+  width: number,
+  height: number
+) => {
+  const packed = pack<PackableNode>().size([width, height]).padding(3)(
+    hierarchy(data)
+      .sum((d) => (d as unknown as PackableLeafNode).value)
+      .sort((a, b) => b.value! - a.value!)
+  );
+
+  let focus = packed;
+  let view: [number, number, number];
+
   const svg = select(`#${id}`)
     .append("svg")
+    .attr("viewBox", `-${width / 2} -${height / 2} ${width} ${height}`)
+    .style("display", "block")
     .attr("height", height)
-    .attr("width", width);
+    .attr("width", width)
+    .on(
+      "click",
+      (_, d) => focus !== d && zoomTo([packed.x, packed.y, packed.r * 2])
+    );
 
   const margin = { top: 10, right: 10, bottom: 20, left: 40 };
+
+  const color = scaleLinear()
+    .domain([0, 5])
+    // @ts-ignore
+    .range(["hsl(152,80%,80%)", "hsl(228,30%,40%)"])
+    // @ts-ignore
+    .interpolate(interpolateHcl);
+
+  const node = svg
+    .append("g")
+    .selectAll("circle")
+    .data(packed.descendants().slice(1))
+    .join("circle")
+    .attr("fill", (d) => (d.children ? color(1) : "white"))
+    .attr("pointer-events", (d) => (!d.children ? "none" : null))
+    .attr("r", (d) => d.r)
+    .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")")
+    .on(
+      "click",
+      (event, d) => focus !== d && (zoom(event, d), event.stopPropagation())
+    )
+    .on("mouseover", function () {
+      select(this).attr("stroke", "#000");
+    })
+    .on("mouseout", function () {
+      select(this).attr("stroke", null);
+    });
+
+  const label = svg
+    .append("g")
+    .style("font", "10px sans-serif")
+    .attr("pointer-events", "none")
+    .attr("text-anchor", "middle")
+    .selectAll("text")
+    .data(packed.descendants())
+    .join("text")
+    .style("fill-opacity", (d) => (d.parent === packed ? 1 : 0))
+    //.style("fill-opacity", 1)
+    .style("display", (d) => (d.parent === packed ? "inline" : "none"))
+    //.style("display", "inline")
+    .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")")
+    .text((d) => (d.value ? d.value : "")) as Selection<
+    SVGTextElement,
+    HierarchyCircularNode<PackableNode>,
+    any,
+    any
+  >;
+
+  const zoomTo = (v: [number, number, number]) => {
+    const k = width / v[2];
+
+    view = v;
+
+    label.attr("transform", (d) => {
+      return `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`;
+    });
+    node.attr(
+      "transform",
+      (d) => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`
+    );
+    node.attr("r", (d) => d.r * k);
+  };
+
+  const zoom = (event: MouseEvent, d: HierarchyCircularNode<PackableNode>) => {
+    focus = d;
+
+    const transition = svg
+      .transition()
+      .duration(500)
+      .tween("zoom", (d) => {
+        const i = interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
+        return (t) => zoomTo(i(t));
+      });
+
+    label
+      .filter(function (d) {
+        return d.parent === focus || this.style.display === "inline";
+      })
+      .transition(transition as any) // hmmm
+      .style("fill-opacity", (d) => (d.parent === focus ? 1 : 0))
+      .on("start", function (d) {
+        if (d.parent === focus) this.style.display = "inline";
+      })
+      .on("end", function (d) {
+        if (d.parent !== focus) this.style.display = "none";
+      });
+  };
+
+  zoomTo([packed.x, packed.y, packed.r * 2]); // set view
+
+  return svg.node();
 };
 
 export default Chart;

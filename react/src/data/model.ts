@@ -205,7 +205,7 @@ const createDivisionsLinksAndUnits = (
 
   //campus is parent of division
   division.forEach((d) => {
-    if (d.campusId) {
+    if (d.name && d.campusId) {
       createLink(d.campusId, d.id, "campus", "division", "division");
     }
   });

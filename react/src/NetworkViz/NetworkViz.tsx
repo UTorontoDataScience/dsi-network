@@ -201,6 +201,7 @@ const buildPackChart = (
   const svg = select(`#${id}`)
     .append("svg")
     .attr("viewBox", `-${width / 2} -${height / 2} ${width} ${height}`)
+    .style("margin", "0 -14px")
     .style("display", "block")
     .attr("height", height)
     .attr("width", width)
@@ -210,8 +211,6 @@ const buildPackChart = (
       }
       focus = root;
     });
-
-  const margin = { top: 10, right: 10, bottom: 20, left: 40 };
 
   const getLabel = (node: PackableNodeChild) => {
     if (node.hasOwnProperty("relationship")) {

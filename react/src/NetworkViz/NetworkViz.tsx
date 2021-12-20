@@ -192,13 +192,13 @@ const buildPackChart = (
   width: number,
   height: number
 ) => {
-  const packed = pack<PackableNode>().size([width, height]).padding(3)(
+  const root = pack<PackableNode>().size([width, height]).padding(3)(
     hierarchy(data)
       .sum((d) => (d as unknown as PackableLeafNode).value)
       .sort((a, b) => b.value! - a.value!)
   );
 
-  let focus = packed;
+  let focus = root;
   let view: [number, number, number];
 
   const svg = select(`#${id}`)
@@ -207,10 +207,12 @@ const buildPackChart = (
     .style("display", "block")
     .attr("height", height)
     .attr("width", width)
-    .on(
-      "click",
-      (_, d) => focus !== d && zoomTo([packed.x, packed.y, packed.r * 2])
-    );
+    .on("click", (event, d) => {
+      if (focus !== d) {
+        zoom(event, root);
+      }
+      focus = root;
+    });
 
   const margin = { top: 10, right: 10, bottom: 20, left: 40 };
 
@@ -224,7 +226,7 @@ const buildPackChart = (
   const node = svg
     .append("g")
     .selectAll("circle")
-    .data(packed.descendants().slice(1))
+    .data(root.descendants().slice(1))
     .join("circle")
     .attr("fill", (d) => (d.children ? color(1) : "white"))
     .attr("pointer-events", (d) => (!d.children ? "none" : null))
@@ -247,14 +249,17 @@ const buildPackChart = (
     .attr("pointer-events", "none")
     .attr("text-anchor", "middle")
     .selectAll("text")
-    .data(packed.descendants())
+    .data(root.descendants())
     .join("text")
-    .style("fill-opacity", (d) => (d.parent === packed ? 1 : 0))
-    //.style("fill-opacity", 1)
-    .style("display", (d) => (d.parent === packed ? "inline" : "none"))
-    //.style("display", "inline")
+    .style("fill-opacity", (d) => (d.parent === focus ? 1 : 0))
+    .style("display", (d) => {
+      return d.parent === focus ? "inline" : "none";
+    })
     .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")")
-    .text((d) => (d.value ? d.value : "")) as Selection<
+    // todo: every entity also needs a typelabel, including leaves
+    .text((d) =>
+      d.value ? `${d.data?.entity?.id}: ${d.value}` : ""
+    ) as Selection<
     SVGTextElement,
     HierarchyCircularNode<PackableNode>,
     any,
@@ -301,9 +306,9 @@ const buildPackChart = (
       });
   };
 
-  zoomTo([packed.x, packed.y, packed.r * 2]); // set view
+  zoomTo([root.x, root.y, root.r * 2]); // set view
 
-  return svg.node();
+  //return svg.node();
 };
 
 export default Chart;

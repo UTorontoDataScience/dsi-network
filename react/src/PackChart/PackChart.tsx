@@ -10,23 +10,27 @@ import {
 import { pack, hierarchy } from "d3-hierarchy";
 import getModel, {
   Campus,
-  Division,
   EntityType,
+  getKeys,
+  HierarchicalLeafNode,
+  HierarchicalNode,
+  HierarchicalNodeChild,
+  HydratedLink,
+  hydrateLinks,
   Model,
+  ModelEntity,
   Relationship,
-  Unit,
 } from "../data/model";
-import { Person, AcademicProgram } from "./../types";
 
-const Chart: React.FC = () => {
+const PackChart: React.FC = () => {
   const [model, setModel] = useState<Model>();
-  const [packableData, setPackableData] = useState<PackableNode>();
+  const [HierarchicalData, setHierarchicalData] = useState<HierarchicalNode>();
 
   useLayoutEffect(() => {
-    if (packableData) {
-      buildPackChart("test", packableData, 600, 1000);
+    if (HierarchicalData) {
+      buildPackChart("test", HierarchicalData, 600, 1000);
     }
-  }, [packableData]);
+  }, [HierarchicalData]);
 
   useEffect(() => {
     const _getModel = async () => {
@@ -38,45 +42,14 @@ const Chart: React.FC = () => {
 
   useEffect(() => {
     if (model) {
-      console.log("starting");
-      setPackableData(makePackableData(model));
+      setHierarchicalData(makeHierarchicalDataWithAggregateLeafs(model));
     }
   }, [model]);
 
-  console.log(packableData);
+  console.log(HierarchicalData);
 
   return <span id="test" />;
 };
-
-type NumberOrString = number | string;
-export const groupBy = <
-  T extends { [key: NumberOrString]: any },
-  K extends keyof T
->(
-  data: T[],
-  key: T[K] extends NumberOrString ? K : never
-) => {
-  return data.reduce<{ [key: NumberOrString]: T[] }>(
-    (acc, curr) => ({
-      ...acc,
-      [curr[key]]: acc[curr[key]] ? acc[curr[key]].concat(curr) : [curr],
-    }),
-    {}
-  );
-};
-
-interface PackableLeafNode {
-  relationship: Relationship;
-  value: number;
-}
-
-type PackableNodeChild = PackableNode | PackableLeafNode;
-interface PackableNode {
-  children: PackableNodeChild[];
-  entity: ModelEntity;
-  relationToParent: Relationship | "root";
-  type: EntityType;
-}
 
 const getLeafs = (links: HydratedLink[], leafType: EntityType) => {
   const counts = links
@@ -94,33 +67,29 @@ const getLeafs = (links: HydratedLink[], leafType: EntityType) => {
   return getKeys(counts).map((k) => ({
     relationship: k,
     value: counts[k],
-  })) as PackableLeafNode[];
+  })) as HierarchicalLeafNode[];
 };
 
 const makeNode = (
-  rootId: number,
+  root: ModelEntity,
   rootType: EntityType,
   leafType: EntityType,
   relationship: Relationship | "root",
   links: HydratedLink[]
-): PackableNode => {
-  const rootEntity = links.find(
-    (l) => l.parentType === rootType && l.parent.id === rootId
-  )?.parent!;
-
+): HierarchicalNode => {
   const childLinks = links.filter(
-    (l) => l.parentType === rootType && l.parent.id === rootId
+    (l) => l.parentType === rootType && l.parent.id === root.id
   );
 
   const parents = childLinks.filter((cl) => cl.childType !== leafType);
 
-  const res: PackableNode = {
-    entity: rootEntity,
+  const res: HierarchicalNode = {
+    entity: root,
     relationToParent: relationship,
     type: rootType,
     children: [
       ...parents.map((c) =>
-        makeNode(c.child.id, c.childType, leafType, c.relationship, links)
+        makeNode(c.child, c.childType, leafType, c.relationship, links)
       ),
       ...getLeafs(childLinks, leafType),
     ],
@@ -129,69 +98,29 @@ const makeNode = (
   return res;
 };
 
-type ModelEntity = Unit | Division | Person | AcademicProgram;
-
-interface HydratedLink {
-  child: ModelEntity;
-  childType: EntityType;
-  parent: ModelEntity;
-  parentType: EntityType;
-  relationship: Relationship;
-}
-
-type ModelMap = { [K in keyof Model]: { [id: number]: ModelEntity } };
-
-const getKeys = <T,>(obj: T) => Object.keys(obj) as (keyof T)[];
-
 /* division, unit, program, person, relationship-type-count */
-const makePackableData = (model: Model): PackableNode => {
-  const { links, ...modelsToHydrate } = model;
-
-  // this is the bottleneck -- can it be done server-side?
-  // would a map be faster?
-
-  //this should be done once and memoized
-  const modelMap = getKeys(modelsToHydrate).reduce<ModelMap>(
-    (acc, k) => ({
-      ...acc,
-      [k]: Object.values(modelsToHydrate[k]).reduce<{
-        [id: number]: ModelEntity;
-      }>(
-        (acc, curr: ModelEntity) => ({
-          ...acc,
-          [curr.id]: curr,
-        }),
-        {}
-      ),
-    }),
-    {} as ModelMap
-  );
-
-  const hydrated: HydratedLink[] = links.map((l) => ({
-    child: modelMap[l.vType][l.vId],
-    childType: l.vType,
-    parent: modelMap[l.uType][l.uId],
-    parentType: l.uType,
-    relationship: l.relationship,
-  }));
+export const makeHierarchicalDataWithAggregateLeafs = (
+  model: Model
+): HierarchicalNode => {
+  const hydratedLinks = hydrateLinks(model);
 
   //problem is that we need only nodes that have persons as leaves
   //can we use discovery to prune any links that don't have paths to persons?
 
   const stGeorge = model.campus.find((c) => c.name.includes("eorge")) as Campus;
 
-  return makeNode(stGeorge.id, "campus", "person", "root", hydrated);
+  return makeNode(stGeorge, "campus", "person", "root", hydratedLinks);
 };
 
 const buildPackChart = (
   id: string,
-  data: PackableNode,
+  data: HierarchicalNode,
   width: number,
   height: number
 ) => {
-  const root = pack<PackableNode>().size([width, height]).padding(3)(
+  const root = pack<HierarchicalNode>().size([width, height]).padding(3)(
     hierarchy(data)
-      .sum((d) => (d as unknown as PackableLeafNode).value)
+      .sum((d) => (d as unknown as HierarchicalLeafNode).value)
       .sort((a, b) => b.value! - a.value!)
   );
 
@@ -212,11 +141,11 @@ const buildPackChart = (
       focus = root;
     });
 
-  const getLabel = (node: PackableNodeChild) => {
+  const getLabel = (node: HierarchicalNodeChild) => {
     if (node.hasOwnProperty("relationship")) {
-      return (node as PackableLeafNode).relationship;
+      return (node as HierarchicalLeafNode).relationship;
     } else if (node.hasOwnProperty("entity")) {
-      return (node as PackableNode).entity.name;
+      return (node as HierarchicalNode).entity.name;
     }
   };
 
@@ -260,12 +189,11 @@ const buildPackChart = (
       return d.parent === focus ? "inline" : "none";
     })
     .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")")
-    // todo: every entity also needs a typelabel, including leaves
     .text((d) =>
       d.value ? `${getLabel(d.data)}: ${d.value}` : ""
     ) as Selection<
     SVGTextElement,
-    HierarchyCircularNode<PackableNode>,
+    HierarchyCircularNode<HierarchicalNode>,
     any,
     any
   >;
@@ -285,7 +213,10 @@ const buildPackChart = (
     node.attr("r", (d) => d.r * k);
   };
 
-  const zoom = (event: MouseEvent, d: HierarchyCircularNode<PackableNode>) => {
+  const zoom = (
+    event: MouseEvent,
+    d: HierarchyCircularNode<HierarchicalNode>
+  ) => {
     focus = d;
 
     const transition = svg
@@ -311,8 +242,6 @@ const buildPackChart = (
   };
 
   zoomTo([root.x, root.y, root.r * 2]); // set view
-
-  //return svg.node();
 };
 
-export default Chart;
+export default PackChart;

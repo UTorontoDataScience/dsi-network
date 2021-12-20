@@ -151,12 +151,11 @@ const createDivisionsLinksAndUnits = (
     (name || "")
       .toLowerCase()
       .replace(/(,|(department of))/g, "")
+      .replace("&", "and")
       .trim();
 
   const populateUnit = (unit: Unit, people: Person[]) => {
-    // just do department to department
-
-    console.log(`unit: ${unit.name}`);
+    // just doing department to department for now
 
     const _people = people
       .filter(
@@ -250,5 +249,66 @@ const getModel = async (): Promise<Model> => {
 
   return results;
 };
+
+export type ModelEntity = Unit | Division | Person | AcademicProgram;
+
+export interface HydratedLink {
+  child: ModelEntity;
+  childType: EntityType;
+  parent: ModelEntity;
+  parentType: EntityType;
+  relationship: Relationship;
+}
+
+type ModelMap = { [K in keyof Model]: { [id: number]: ModelEntity } };
+
+export const getKeys = <T>(obj: T) => Object.keys(obj) as (keyof T)[];
+
+export const hydrateLinks = (model: Model) => {
+  const { links, ...modelsToHydrate } = model;
+
+  // this is the bottleneck -- can it be done server-side?
+  // would a map be faster?
+
+  //this should be done once and memoized
+  const modelMap = getKeys(modelsToHydrate).reduce<ModelMap>(
+    (acc, k) => ({
+      ...acc,
+      [k]: Object.values(modelsToHydrate[k]).reduce<{
+        [id: number]: ModelEntity;
+      }>(
+        (acc, curr: ModelEntity) => ({
+          ...acc,
+          [curr.id]: curr,
+        }),
+        {}
+      ),
+    }),
+    {} as ModelMap
+  );
+
+  const hydrated: HydratedLink[] = links.map((l) => ({
+    child: modelMap[l.vType][l.vId],
+    childType: l.vType,
+    parent: modelMap[l.uType][l.uId],
+    parentType: l.uType,
+    relationship: l.relationship,
+  }));
+
+  return hydrated;
+};
+
+export interface HierarchicalLeafNode {
+  relationship: Relationship;
+  value: number;
+}
+
+export type HierarchicalNodeChild = HierarchicalNode | HierarchicalLeafNode;
+export interface HierarchicalNode {
+  children: HierarchicalNodeChild[];
+  entity: ModelEntity;
+  relationToParent: Relationship | "root";
+  type: EntityType;
+}
 
 export default getModel;

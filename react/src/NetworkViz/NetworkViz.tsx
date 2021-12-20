@@ -1,6 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import {
-  create,
   HierarchyCircularNode,
   interpolateHcl,
   interpolateZoom,
@@ -10,15 +9,14 @@ import {
 } from "d3";
 import { pack, hierarchy } from "d3-hierarchy";
 import getModel, {
-  AcademicProgram,
   Campus,
   Division,
   EntityType,
   Model,
-  Person,
   Relationship,
   Unit,
 } from "../data/model";
+import { Person, AcademicProgram } from "./../types";
 
 const Chart: React.FC = () => {
   const [model, setModel] = useState<Model>();
@@ -67,7 +65,6 @@ export const groupBy = <
   );
 };
 
-/* value is count --> start with people */
 interface PackableLeafNode {
   relationship: Relationship;
   value: number;

@@ -1,57 +1,22 @@
-import faker from "faker";
+import {
+  AcademicProgram,
+  AcademicProgramsDataRaw,
+  PersonDataRaw,
+  Person,
+} from "../types";
 
-// note that for now 'er really only under the auspices of u of t
-
-// also, once we're confident, we'll want to save this as json rather than recreating it all the time for the sake of reproducibility
-
-interface AcademicProgramsData {
-  campus: string;
-  division: string;
-  unit: string | null; // department, typically
-  program: string;
-  short_name: string;
-  type_education: string;
-  subtype_education: string;
-  work_integrated_learning_experience: string;
-  type_research: string;
-  subtype_research: string;
-  type_resource: string;
-  resource_subtype_database: string;
-  resource_substype_infrastructure: string;
-  resource_subtype_service: string;
-  resource_subtype_software: string;
-  resource_subtype_training: string;
-  type_event_removed: string;
-  degree_designation: string;
-  short_description: string;
-  audience: string;
-  key_words_tags: string;
-  url: string;
-  alt_links: string;
-  year_established: string;
-  date_if_event_: string;
-  questions: string;
-  hl_response: string;
-}
-
-export interface AcademicProgram extends AcademicProgramsData {
-  id: number;
-  is_research: boolean;
-  is_resource: boolean;
-  is_education: boolean;
-  name: string;
-}
+// once we're confident, we'll want to save this as json rather than recreating it all the time for the sake of reproducibility
 
 const fetchAcademicProgramsData = async () => {
   return (await (await fetch("academic-programs.json")).json()) as Promise<
-    AcademicProgramsData[]
+    AcademicProgramsDataRaw[]
   >;
 };
 
 const strToBool = (type?: string) =>
   type && type.toLowerCase() === "yes" ? true : false;
 
-const transformPrograms = (data: AcademicProgramsData[]) =>
+const transformPrograms = (data: AcademicProgramsDataRaw[]) =>
   data.map((u, id) => ({
     ...u,
     id: id + 1,
@@ -61,11 +26,20 @@ const transformPrograms = (data: AcademicProgramsData[]) =>
     name: u.program,
   }));
 
-export interface Person {
-  contact: string;
-  id: number;
-  name: string;
-}
+const fetchPeopleData = async () => {
+  return (await (await fetch("people.json")).json()) as Promise<
+    PersonDataRaw[]
+  >;
+};
+
+const transformPeople = (data: PersonDataRaw[]) =>
+  data.map((u, id) => ({
+    ...Object.fromEntries(
+      Object.entries(u).map(([k, v]) => [k, k.endsWith("_bool") ? !!v : v])
+    ),
+    id: id + 1,
+    name: `${u.first} ${u.last}`,
+  })) as Person[];
 
 export interface Campus {
   name: string;
@@ -83,12 +57,6 @@ export interface Unit {
   divisionId?: number;
   name: string;
 }
-
-const makePerson = (): Person => ({
-  contact: faker.internet.email(),
-  name: `${faker.name.firstName()} ${faker.name.lastName()}`,
-  id: faker.unique(faker.datatype.number),
-});
 
 export interface EntityDict {
   campus: Campus[];
@@ -109,9 +77,8 @@ export type Relationship =
   | "fellow"
   | "graduate_student"
   | "grantee"
-  | "location"
   | "postdoc"
-  | "primary_investigator"
+  | "principal_investigator"
   | "professor"
   | "program"
   | "researcher"
@@ -134,9 +101,11 @@ const uniqueBy =
   (m: T, i: number, arr: T[]) =>
     arr.findIndex((model: T) => model[field] === m[field]) === i;
 
-const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
+const createDivisionsLinksAndUnits = (
+  programs: AcademicProgram[],
+  people: Person[]
+) => {
   const links: Link[] = [];
-  const person: Person[] = [];
   const campus = [...new Set(programs.map((u) => u.campus))]
     .filter(Boolean)
     .map((d, id) => ({
@@ -161,34 +130,60 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     }))
     .filter(uniqueBy("name"));
 
-  const populateProgram = (
-    program: AcademicProgram,
-    relationship: Relationship,
-    maxCount: number
-  ) => {
-    const _people = Array(faker.datatype.number({ min: 1, max: maxCount }))
-      .fill(null)
-      .map(() => {
-        const _person = makePerson();
-        person.push(_person);
+  const getPersonRelationship = (_role?: string): Relationship => {
+    const role = (_role || "").toLowerCase();
+    if (role.includes("professor")) {
+      return "professor";
+    } else if (role.includes("phd") || role.includes("master")) {
+      return "graduate_student";
+    } else if (role.includes("investigator")) {
+      return "principal_investigator";
+    } else if (role.includes("undergraduate")) {
+      return "undergraduate";
+    } else if (role.includes("research")) {
+      return "researcher";
+    }
+
+    return "staff";
+  };
+
+  const transformDepartmentName = (name: string) =>
+    (name || "")
+      .toLowerCase()
+      .replace(/(,|(department of))/g, "")
+      .trim();
+
+  const populateUnit = (unit: Unit, people: Person[]) => {
+    // just do department to department
+
+    console.log(`unit: ${unit.name}`);
+
+    const _people = people
+      .filter(
+        (p) =>
+          !!unit.name &&
+          [p.primary_department, p.secondary_department]
+            .map(transformDepartmentName)
+            .includes(transformDepartmentName(unit.name))
+      )
+      .map((person) => {
         const link = {
-          uId: program.id,
-          uType: "program" as EntityType,
-          vId: _person.id,
+          uId: unit.id,
+          uType: "unit" as EntityType,
+          vId: person.id,
           vType: "person" as EntityType,
-          relationship: relationship,
+          relationship: getPersonRelationship(
+            transformDepartmentName(person.primary_department) ===
+              transformDepartmentName(unit.name)
+              ? person.primary_role
+              : person.secondary_role
+          ),
         };
         links.push(link);
-        return _person;
+        return person;
       });
     return _people;
   };
-
-  const createProgramToPersonLink = (
-    uId: number,
-    vId: number,
-    relationship: Relationship
-  ) => createLink(uId, vId, "program", "person", relationship);
 
   const createLink = (
     uId: number,
@@ -208,39 +203,20 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     return link;
   };
 
-  programs.forEach((program) => {
-    if (program.is_education) {
-      populateProgram(program, "professor", 3);
-      populateProgram(program, "postdoc", 3);
-      populateProgram(program, "graduate_student", 7);
-      populateProgram(program, "undergraduate", 14);
-      populateProgram(program, "staff", 8);
-    }
-    if (program.is_research) {
-      populateProgram(program, "researcher", 8);
-      populateProgram(program, "primary_investigator", 2);
-      populateProgram(program, "staff", 8);
-      populateProgram(program, "postdoc", 3);
-    }
-
-    if (program.is_resource) {
-      populateProgram(program, "researcher", 5);
-      populateProgram(program, "staff", 4);
-    }
-  });
-
   //campus is parent of division
   division.forEach((d) => {
     if (d.campusId) {
-      createLink(d.campusId, d.id, "campus", "division", "location");
+      createLink(d.campusId, d.id, "campus", "division", "division");
     }
   });
 
   // divisions are parents of units (assuming for now they're all departments)
+  // people data isn't great on programs, so we'll attach to units instead
   unit.forEach((u) => {
     if (u.divisionId) {
       createLink(u.divisionId, u.id, "division", "unit", "department");
     }
+    populateUnit(u, people);
   });
 
   // units (departments) are parents of programs
@@ -257,60 +233,19 @@ const createPeopleDivisionsLinksAndUnits = (programs: AcademicProgram[]) => {
     }
   });
 
-  const professorLinks = links
-    .filter((l) => l.relationship === "professor")
-    .map((l) => l.vId);
-
-  const professors = person.filter((p) => professorLinks.includes(p.id));
-
-  const researcherLinks = links
-    .filter((l) =>
-      ["researcher", "undergraduate", "graduate student", "postdoc"].includes(
-        l.relationship
-      )
-    )
-    .map((l) => l.vId);
-
-  const researchers = person.filter((p) => researcherLinks.includes(p.id));
-
-  //make some random professors PIs in research programs
-  programs.forEach((p) => {
-    if (p.is_research) {
-      const piIdx = faker.datatype.number({
-        min: 0,
-        max: professors.length - 1,
-      });
-      const pi = professors.find((_pi, i) => i === piIdx);
-      createProgramToPersonLink(p.id, pi!.id, "primary_investigator");
-      professors.splice(piIdx, 1);
-
-      const rIdx = faker.datatype.number({
-        min: 0,
-        max: researchers.length - 1,
-      });
-      const r = researchers.find((_pi, i) => i === rIdx);
-      createProgramToPersonLink(p.id, r!.id, "affiliate");
-    }
-
-    if (p.is_resource) {
-      const rIdx = faker.datatype.number({
-        min: 0,
-        max: researchers.length - 1,
-      });
-      const r = researchers.find((_pi, i) => i === rIdx);
-      createProgramToPersonLink(p.id, r!.id, "affiliate");
-    }
-  });
-
-  return { campus, division, links, person, unit };
+  return { campus, division, links, unit };
 };
 const getModel = async (): Promise<Model> => {
   const programData = await fetchAcademicProgramsData();
   const program = transformPrograms(programData);
 
+  const peopleData = await fetchPeopleData();
+  const person = transformPeople(peopleData);
+
   const results = {
+    person,
     program,
-    ...createPeopleDivisionsLinksAndUnits(program),
+    ...createDivisionsLinksAndUnits(program, person),
   };
 
   return results;

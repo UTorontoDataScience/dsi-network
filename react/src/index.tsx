@@ -7,7 +7,7 @@ const App: React.FC = () => (
   <div
     style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
   >
-    {/* <NetworkViz />  */}
+    {/* <NetworkViz /> */}
     {<ForceGraph />}
   </div>
 );

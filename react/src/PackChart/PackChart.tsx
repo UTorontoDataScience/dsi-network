@@ -1,13 +1,8 @@
 import React, { useEffect, useLayoutEffect, useState } from "react";
-import {
-  HierarchyCircularNode,
-  interpolateHcl,
-  interpolateZoom,
-  scaleLinear,
-  select,
-  Selection,
-} from "d3";
-import { pack, hierarchy } from "d3-hierarchy";
+import { select, Selection } from "d3-selection";
+import { scaleLinear } from "d3-scale";
+import { pack, hierarchy, HierarchyCircularNode } from "d3-hierarchy";
+import { interpolateHcl, interpolateZoom } from "d3-interpolate";
 import getModel, {
   Campus,
   EntityType,

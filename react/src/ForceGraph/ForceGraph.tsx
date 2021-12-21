@@ -1,8 +1,10 @@
 import {
+  BaseType,
   hierarchy,
-  HierarchyLink,
   HierarchyNode,
   select,
+  Selection,
+  SimulationLinkDatum,
   SimulationNodeDatum,
 } from "d3";
 import {
@@ -79,6 +81,10 @@ const buildTree = (
   return res;
 };
 
+/* for correct tying for data annotated with coordinates by forceLink/simulation, we need to extend these interfaces */
+interface ForceNodeWrapper<T> extends HierarchyNode<T>, SimulationNodeDatum {}
+interface ForceLinkWrapper<T> extends SimulationLinkDatum<T> {}
+
 const buildForceGraph = (
   _nodes: HierarchicalNode,
   selector: string,
@@ -89,18 +95,16 @@ const buildForceGraph = (
   const links = root.links();
   const nodes = root.descendants();
 
-  //i think this mutates links...
-  const simulation = forceSimulation(nodes as SimulationNodeDatum[])
-    .force(
-      "link",
-      forceLink<any, HierarchyLink<HierarchicalNode>>(links)
-        /*         .id((d: HierarchyNode<HierarchicalNode>) => {
-          return `${d.data.entity.id}-${d.data.type}`;
-        }) */
-        .distance(0)
-        .strength(1)
-    )
-    .force("charge", forceManyBody().strength(-50))
+  const forceLinks = forceLink<
+    ForceNodeWrapper<HierarchicalNode>,
+    ForceLinkWrapper<ForceNodeWrapper<HierarchicalNode>>
+  >(links)
+    .distance(0)
+    .strength(1);
+
+  const simulation = forceSimulation<ForceNodeWrapper<HierarchicalNode>>(nodes)
+    .force("link", forceLinks)
+    .force("charge", forceManyBody().strength(-25))
     .force("x", forceX())
     .force("y", forceY());
 
@@ -115,7 +119,7 @@ const buildForceGraph = (
     .attr("stroke", "#999")
     .attr("stroke-opacity", 0.6)
     .selectAll("line")
-    .data(links)
+    .data(forceLinks.links())
     .join("line");
 
   const node = svg
@@ -124,7 +128,7 @@ const buildForceGraph = (
     .attr("stroke", "#000")
     .attr("stroke-width", 1.5)
     .selectAll("circle")
-    .data(nodes)
+    .data(simulation.nodes())
     .join("circle")
     .attr("fill", (d) => (d.children ? null : "#000"))
     .attr("stroke", (d) => (d.children ? null : "#fff"))
@@ -135,19 +139,12 @@ const buildForceGraph = (
 
   simulation.on("tick", () => {
     link
-      // @ts-ignore -- i think source has been mutated (yeah it has x,y, vx,vy)
-      .attr("x1", (d) => d.source.x)
-      // @ts-ignore
-      .attr("y1", (d) => d.source.y)
-      // @ts-ignore
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => {
-        // @ts-ignore
-        return d.target.y;
-      });
+      .attr("x1", (d) => (d.source as ForceNodeWrapper<HierarchicalNode>).x!)
+      .attr("y1", (d) => (d.source as ForceNodeWrapper<HierarchicalNode>).y!)
+      .attr("x2", (d) => (d.target as ForceNodeWrapper<HierarchicalNode>).x!)
+      .attr("y2", (d) => (d.target as ForceNodeWrapper<HierarchicalNode>).y!);
 
-    // @ts-ignore
-    node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+    node.attr("cx", (d) => d.x!).attr("cy", (d) => d.y!);
   });
 
   return svg.node();

@@ -144,15 +144,14 @@ const buildForceGraph = (
         },
       }));
 
-      // do we need a new simulation every time?
+      const sim = simulation.nodes(_nodes); //this will pop the notdes off their links....
 
-      /* would be great to add radial force away from selected node, also, animate the transition to red (make big then small) */
-      node
+      const newNodes = node
         .data(_nodes, (d: ForceNodeWrapper<ForceNode>) => makeKey(d))
         .join(
           (enter) => {
             console.log(enter);
-            return enter
+            const res = enter
               .append("circle")
               .attr("fill", (d) => (d.children ? null : "black"))
               .attr("stroke", (d) => (d.children ? null : "#fff"))
@@ -164,21 +163,39 @@ const buildForceGraph = (
                   .transition()
                   .duration(500)
                   .attr("r", (d) => (d.data.selected ? 10 : 3.5))
-                  .attr("fill", (d) => (d.data.selected ? "red" : "black"))
-                  .on("start", () => {
-                    //console.log(enter.data()); //this is the data....
-                    //but don't restart the simulation because data has changed (? try merging links and see if that fixes)
-                    //simulation.alpha(0.1).restart();
-                  })
-              )
-              .append("title")
-              .text((d) => d.data.entity.name);
+              );
+
+            //append separately so it doesn't get returned
+            res.append("title").text((d) => d.data.entity.name);
+
+            return res;
           },
           (update) => {
             console.log(update);
             return update.selection();
           }
         );
+
+      sim.on("tick", () => {
+        console.log("ticked");
+        link
+          .attr("x1", (d) => (d.source as ForceNodeWrapper<ForceNode>).x!)
+          .attr("y1", (d) => (d.source as ForceNodeWrapper<ForceNode>).y!)
+          .attr("x2", (d) => (d.target as ForceNodeWrapper<ForceNode>).x!)
+          .attr("y2", (d) => (d.target as ForceNodeWrapper<ForceNode>).y!);
+
+        newNodes
+          .attr("cx", (d) => d.x!)
+          .attr("cy", (d) => d.y!)
+          .attr("fill", function (d) {
+            if (d.data.selected) {
+              console.log("selected"); //  could try mutating nodes in place rather than following pattern?
+              return "red"; // probably best just to fix position of all nodes that aren't in the entry selection, but also have to rebind links?
+            }
+            return select(this).attr("fill");
+          });
+      });
+      sim.restart();
     }, 7000);
 
   const node = svg
@@ -203,6 +220,7 @@ const buildForceGraph = (
   node.append("title").text((d) => d.data.entity.name);
 
   simulation.on("tick", () => {
+    console.log("tick");
     link
       .attr("x1", (d) => (d.source as ForceNodeWrapper<ForceNode>).x!)
       .attr("y1", (d) => (d.source as ForceNodeWrapper<ForceNode>).y!)

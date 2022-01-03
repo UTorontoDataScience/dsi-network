@@ -153,14 +153,14 @@ const buildSimulation2 = <T,>(
 ) => {
     return (
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
-            .force('d', forceLinks.distance(12))
+            .force('d', forceLinks.distance(5))
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
             .force('charge', forceManyBody().strength(-10))
             //note that we ought to pass in array of nodes and function
-            .force('x', forceX(rootNode.x!).strength(-0.1))
-            .force('y', forceY(rootNode.y!).strength(-0.1))
+            .force('x', forceX(rootNode.x! + 5).strength(-0.2))
+            .force('y', forceY(rootNode.y! + 5).strength(-0.2))
             //higher is slower, default is .4
-            .velocityDecay(0.6)
+            .velocityDecay(0.2)
     );
 };
 
@@ -295,6 +295,7 @@ const updateForceGraph = (
 ) => {
     simulation.stop();
 
+    //todo: this should be handled in react
     const newRoot = mapHierarchyNode(nodes, node => ({
         ...node,
         data: {

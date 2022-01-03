@@ -1,5 +1,5 @@
 import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { BaseType, select, selectAll, Selection } from 'd3-selection';
+import { select, selectAll, Selection } from 'd3-selection';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 
 import {
@@ -151,7 +151,6 @@ const buildSimulation2 = <T,>(
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
     >
 ) => {
-    console.log(rootNode.x);
     return (
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
             .force('d', forceLinks.distance(12))
@@ -274,14 +273,6 @@ const registerTickHandler = <
             );
     });
 };
-
-interface Point {
-    x: number;
-    y: number;
-}
-
-const getDistance = (pA: Point, pB: Point) =>
-    Math.sqrt(Math.pow(pB.x - pA.x, 2) + Math.pow(pB.y - pA.y, 2));
 
 const updateForceGraph = (
     nodes: ForceNodeSimulationWrapper<ForceNode>,

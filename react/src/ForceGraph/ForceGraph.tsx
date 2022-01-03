@@ -1,5 +1,5 @@
 import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { BaseType, select, Selection } from 'd3-selection';
+import { BaseType, select, selectAll, Selection } from 'd3-selection';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 
 import {
@@ -151,12 +151,13 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
         .id(model => makeNodeKey(model))
         .distance(0)
         .strength(1);
+
 /**
- *  Update nodes and returned enter selection for use by caller
+ *  Update nodes and return enter selection for use by caller
  */
 const updateNodeData = <T extends ForceNode>(
     nodeSelection: Selection<
-        SVGCircleElement | BaseType,
+        SVGCircleElement,
         ForceNodeSimulationWrapper<T>,
         any,
         any
@@ -190,7 +191,7 @@ const updateNodeData = <T extends ForceNode>(
 
 const updateLinkData = <T extends ForceNode>(
     linkSelection: Selection<
-        SVGLineElement | BaseType,
+        SVGLineElement,
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>,
         any,
         any
@@ -215,13 +216,13 @@ const registerTickHandler = <
         ForceLinkSimulationWrapper<L>
     >,
     linkSelection: Selection<
-        BaseType | SVGLineElement,
+        SVGLineElement,
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
         SVGGElement,
         unknown
     >,
     nodeSelection: Selection<
-        SVGCircleElement | BaseType,
+        SVGCircleElement,
         ForceNodeSimulationWrapper<T>,
         any,
         any
@@ -260,6 +261,95 @@ interface Point {
 const getDistance = (pA: Point, pB: Point) =>
     Math.sqrt(Math.pow(pB.x - pA.x, 2) + Math.pow(pB.y - pA.y, 2));
 
+const updateForceGraph = (
+    nodes: ForceNodeSimulationWrapper<ForceNode>,
+    simulation: Simulation<
+        ForceNodeSimulationWrapper<ForceNode>,
+        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>
+    >,
+    svg: Selection<SVGGElement, unknown, SVGSVGElement, any>
+) => {
+    const newRoot = mapHierarchyNode(nodes, node => ({
+        ...node,
+        data: {
+            ...node.data,
+            selected: node.data.entity.name.startsWith('Gary')
+                ? true
+                : node.data.selected,
+        },
+    }));
+
+    // bind new data to dom selection so tickHandler can read it
+    const enterNodes = updateNodeData(
+        svg.selectAll('circle') as Selection<
+            SVGCircleElement,
+            ForceNodeSimulationWrapper<ForceNode>,
+            any,
+            any
+        >,
+        newRoot.descendants()
+    );
+
+    //fix positions of all but new nodes
+    const simMap = simulation
+        .nodes()
+        .reduce(
+            (acc, curr) => ({ ...acc, [makeNodeKey(curr)]: curr }),
+            {} as { [key: string]: any }
+        );
+
+    const newNodes =
+        newRoot.descendants() as ForceNodeSimulationWrapper<ForceNode>[];
+
+    //another approach would be to target only nodes with same parent
+    newNodes.forEach(nn => {
+        const key = makeNodeKey(nn);
+
+        if (simMap[key]) {
+            const { x: x1, y: y1 } = simMap[key];
+            if (
+                enterNodes.filter(n => {
+                    const { x, y } = n;
+                    return (
+                        getDistance({ x: x1, y: y1 }, {
+                            x,
+                            y,
+                        } as Point) < 20
+                    );
+                }).length === 0
+            ) {
+                nn.fx = simMap[key].x;
+                nn.fy = simMap[key].y;
+            }
+        }
+    });
+
+    // build new force links (can't reuse old)
+    // map to ensure that newNodes and their latest locations are looked up at initialization time
+    // (init time is when data is updated/mutated)
+    const forceLinks = buildForceLinks(newRoot.links()).links(
+        newRoot.links().map(l => ({
+            source: makeNodeKey(l.source),
+            target: makeNodeKey(l.target),
+        }))
+    );
+
+    // and it should set selected node(s) as center with repulsive force
+    const newSim = buildSimulation(newNodes, forceLinks);
+    // ensure that link selection has recalculated coordinates bound before passing to tick callback
+
+    const linkSelection = svg.selectAll('line') as Selection<
+        SVGLineElement,
+        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
+        any,
+        any
+    >;
+
+    updateLinkData(linkSelection, forceLinks.links());
+
+    registerTickHandler(newSim, linkSelection, svg.selectAll('circle'));
+};
+
 const buildForceGraph = (
     tree: ForceNode,
     selector: string,
@@ -286,7 +376,12 @@ const buildForceGraph = (
         .selectAll('line')
         .data(forceLinks.links())
         .join('line')
-        .attr('stroke', 'black');
+        .attr('stroke', 'black') as Selection<
+        SVGLineElement,
+        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
+        any,
+        any
+    >;
 
     const nodeSelection = svg
         .append('g')
@@ -304,115 +399,24 @@ const buildForceGraph = (
             d.children ? null : d.data.selected ? 'red' : 'black'
         )
         .attr('stroke', d => (d.children ? null : '#fff'))
-        .attr('r', 3.5);
-    //.call(drag(simulation));
+        .attr('r', 3.5) as Selection<
+        SVGCircleElement,
+        ForceNodeSimulationWrapper<ForceNode>,
+        SVGGElement,
+        unknown
+    >;
+
+    nodeSelection.append('title').text(d => d.data.entity.name);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
     const scheduleRefresh = () =>
         setTimeout(() => {
             simulation.stop();
-
-            // don't mutate bound data, instead return new tree, preserving simulation coordinates
-            const newRoot = mapHierarchyNode(root, node => ({
-                ...node,
-                data: {
-                    ...node.data,
-                    selected: node.data.entity.name.startsWith('Gary')
-                        ? true
-                        : node.data.selected,
-                },
-            }));
-
-            // bind new data to dom selection so tickHandler can read it
-            const enterNodes = updateNodeData(
-                nodeSelection,
-                newRoot.descendants()
-            );
-
-            //fix positions of all but new nodes
-            const simMap = simulation
-                .nodes()
-                .reduce(
-                    (acc, curr) => ({ ...acc, [makeNodeKey(curr)]: curr }),
-                    {} as { [key: string]: any }
-                );
-
-            const newNodes =
-                newRoot.descendants() as ForceNodeSimulationWrapper<ForceNode>[];
-
-            newNodes.forEach(nn => {
-                const key = makeNodeKey(nn);
-
-                if (simMap[key]) {
-                    const { x: x1, y: y1 } = simMap[key];
-                    if (
-                        enterNodes.filter(n => {
-                            const { x, y } = n;
-                            return (
-                                getDistance({ x: x1, y: y1 }, {
-                                    x,
-                                    y,
-                                } as Point) < 20
-                            );
-                        }).length === 0
-                    ) {
-                        nn.fx = simMap[key].x;
-                        nn.fy = simMap[key].y;
-                    }
-                }
-            });
-
-            // build new force links (can't reuse old)
-            // map to ensure that newNodes and their latest locations are looked up at initialization time
-            // (init time is when data is updated/mutated)
-            const forceLinks2 = buildForceLinks(newRoot.links()).links(
-                newRoot.links().map(l => ({
-                    source: makeNodeKey(l.source),
-                    target: makeNodeKey(l.target),
-                }))
-            );
-
-            // todo: this simulation should only affect nodes within 4r of selected node(s)
-            // and it should set selected node(s) as center with repulsive force
-            // all other nodes should have their fx and fy properties set, so they don't get changed
-            const newSim = buildSimulation(newNodes, forceLinks2);
-            // ensure that link selection has recalculated coordinates bound before passing to tick callback
-
-            updateLinkData(linkSelection, forceLinks2.links());
-
-            registerTickHandler(
-                newSim,
-                svg.selectAll('line'),
-                svg.selectAll('circle')
-            );
+            updateForceGraph(root, simulation, svg.selectAll('g'));
         }, 3000);
 
     scheduleRefresh();
-
-    nodeSelection.append('title').text(d => d.data.entity.name);
-
-    simulation.on('tick', () => {
-        linkSelection
-            .attr(
-                'x1',
-                d => (d.source as ForceNodeSimulationWrapper<ForceNode>).x!
-            )
-            .attr(
-                'y1',
-                d => (d.source as ForceNodeSimulationWrapper<ForceNode>).y!
-            )
-            .attr(
-                'x2',
-                d => (d.target as ForceNodeSimulationWrapper<ForceNode>).x!
-            )
-            .attr(
-                'y2',
-                d => (d.target as ForceNodeSimulationWrapper<ForceNode>).y!
-            );
-
-        nodeSelection.attr('cx', d => d.x!).attr('cy', d => d.y!);
-    });
 
     return svg.node();
 };

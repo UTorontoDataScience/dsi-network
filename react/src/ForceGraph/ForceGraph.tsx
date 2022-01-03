@@ -114,9 +114,8 @@ const mapHierarchyNode = <T,>(
     node: HierarchyNode<T>,
     fn: (data: HierarchyNode<T>) => HierarchyNode<T>
 ): HierarchyNode<T> => {
-    //d3 doesn't export the constructor to its hierarchical constructor so we need to clone
-    const clonedNode = { ...node };
-    const newNode = fn(clonedNode);
+    //d3 doesn't export the constructor to its hierarchical node so we need to clone
+    const newNode = fn(node);
     // @ts-ignore
     newNode.__proto__ = node.__proto__;
     newNode.children = [];

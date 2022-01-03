@@ -152,7 +152,9 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
         .id(model => makeNodeKey(model))
         .distance(0)
         .strength(1);
-
+/**
+ *  Update nodes and returned enter selection for use by caller
+ */
 const updateNodeData = <T extends ForceNode>(
     nodeSelection: Selection<
         SVGCircleElement | BaseType,
@@ -162,27 +164,29 @@ const updateNodeData = <T extends ForceNode>(
     >,
     nodes: ForceNodeSimulationWrapper<T>[]
 ) => {
-    nodeSelection
-        .data(nodes, d => makeNodeKey(d))
-        .join(enter => {
-            const enterSelection = enter
-                .append('circle')
-                .attr('fill', d => (d.children ? null : 'black'))
-                .attr('stroke', d => (d.children ? null : '#fff'))
-                .attr('r', 3.5);
+    const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
 
-            enterSelection
-                .transition()
-                .duration(1000)
-                .attr('r', d => (d.data.selected ? 10 : 3.5))
-                .attr('fill', function (d) {
-                    return d.data.selected ? 'red' : select(this).attr('fill');
-                });
-            //append separately so it doesn't get returned
-            enterSelection.append('title').text(d => d.data.entity.name);
+    bound.join(enter => {
+        const enterSelection = enter
+            .append('circle')
+            .attr('fill', d => (d.children ? null : 'black'))
+            .attr('stroke', d => (d.children ? null : '#fff'))
+            .attr('r', 3.5);
 
-            return enterSelection;
-        });
+        enterSelection
+            .transition()
+            //.attr('r', d => (d.data.selected ? 10 : 3.5))
+            .attr('fill', function (d) {
+                return d.data.selected ? 'red' : select(this).attr('fill');
+            })
+            .duration(500);
+        //append separately so it doesn't get returned
+        enterSelection.append('title').text(d => d.data.entity.name);
+
+        return enterSelection;
+    });
+
+    return bound.enter().data();
 };
 
 const updateLinkData = <T extends ForceNode>(
@@ -249,6 +253,14 @@ const registerTickHandler = <
     });
 };
 
+interface Point {
+    x: number;
+    y: number;
+}
+
+const getDistance = (pA: Point, pB: Point) =>
+    Math.sqrt(Math.pow(pB.x - pA.x, 2) + Math.pow(pB.y - pA.y, 2));
+
 const buildForceGraph = (
     tree: ForceNode,
     selector: string,
@@ -313,8 +325,11 @@ const buildForceGraph = (
                 },
             }));
 
-            // bind new data to dom selection so tickhandler can read it
-            updateNodeData(nodeSelection, newRoot.descendants());
+            // bind new data to dom selection so tickHandler can read it
+            const enterNodes = updateNodeData(
+                nodeSelection,
+                newRoot.descendants()
+            );
 
             //fix positions of all but new nodes
             const simMap = simulation
@@ -324,15 +339,28 @@ const buildForceGraph = (
                     {} as { [key: string]: any }
                 );
 
-            // problem here is that the key will not be found if the node was just selected, and thus it will be "new" and lose its place in the old sim
             const newNodes =
                 newRoot.descendants() as ForceNodeSimulationWrapper<ForceNode>[];
 
             newNodes.forEach(nn => {
                 const key = makeNodeKey(nn);
+
                 if (simMap[key]) {
-                    nn.fx = simMap[key].x;
-                    nn.fy = simMap[key].y;
+                    const { x: x1, y: y1 } = simMap[key];
+                    if (
+                        enterNodes.filter(n => {
+                            const { x, y } = n;
+                            return (
+                                getDistance({ x: x1, y: y1 }, {
+                                    x,
+                                    y,
+                                } as Point) < 20
+                            );
+                        }).length === 0
+                    ) {
+                        nn.fx = simMap[key].x;
+                        nn.fy = simMap[key].y;
+                    }
                 }
             });
 

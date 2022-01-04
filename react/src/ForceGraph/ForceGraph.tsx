@@ -153,14 +153,14 @@ const buildSimulation2 = <T,>(
 ) => {
     return (
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
-            .force('d', forceLinks.distance(5))
+            .force('d', forceLinks)
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-            .force('charge', forceManyBody().strength(-10))
+            .force('charge', forceManyBody().strength(-20))
             //note that we ought to pass in array of nodes and function
-            .force('x', forceX(rootNode.x! + 5).strength(-0.2))
-            .force('y', forceY(rootNode.y! + 5).strength(-0.2))
-            //higher is slower, default is .4
-            .velocityDecay(0.2)
+            .force('x', forceX(rootNode.x! + 5))
+            .force('y', forceY(rootNode.y! + 5))
+            //higher is faster, default is .4
+            .velocityDecay(0.9)
     );
 };
 
@@ -170,7 +170,7 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
     >(links)
         .id(model => makeNodeKey(model))
-        .distance(0)
+        .distance(5)
         .strength(1);
 
 /**
@@ -300,7 +300,7 @@ const updateForceGraph = (
         ...node,
         data: {
             ...node.data,
-            selected: node.data.entity.name.startsWith('Gary')
+            selected: node.data.entity.name.startsWith('G')
                 ? true
                 : node.data.selected,
         },

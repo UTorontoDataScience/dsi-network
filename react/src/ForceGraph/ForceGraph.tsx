@@ -22,6 +22,9 @@ import {
     Relationship,
 } from '../data/model';
 
+(window as any).d3Select = select;
+(window as any).d3SelectAll = selectAll;
+
 interface ForceGraphProps {
     links: HydratedLink[];
     rootModel: ModelEntity;
@@ -39,12 +42,14 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         return buildTree(rootModel, rootModelType, 'root', links);
     }, [links, rootModel, rootModelType]);
 
-    useEffect(() => {}, [tree]);
+    useEffect(() => {
+        setTimeout(() => {
+            const newTree = buildTree(rootModel, rootModelType, 'root', links);
+            updateForceGraph(newTree);
+        }, 3000);
+    }, [links, rootModel, rootModelType]);
 
     useLayoutEffect(() => {
-        // todo: this ought to return function for updating
-        // we memoize returned element so it never rerenders
-        // then when links change we call update function
         if (tree && !chartRendered) {
             buildForceGraph(tree, 'test', 1000, 700);
             setChartRendered(true);
@@ -59,7 +64,7 @@ const buildTree = (
     rootType: EntityType,
     relationship: Relationship | 'root',
     links: HydratedLink[]
-): HierarchicalNode => {
+): ForceNode => {
     const childLinks = links.filter(
         l => l.parentType === rootType && l.parent.id === root.id
     );
@@ -139,8 +144,7 @@ const buildSimulation = <T,>(
         //higher is slower, default is .4
         .velocityDecay(0.5);
 
-const buildSimulation2 = <T,>(
-    rootNode: ForceNodeSimulationWrapper<T>,
+const buildUpdateSimulation = <T,>(
     nodes: HierarchyNode<T>[],
     forceLinks: ForceLink<
         ForceNodeSimulationWrapper<T>,
@@ -153,8 +157,6 @@ const buildSimulation2 = <T,>(
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
             .force('charge', forceManyBody().strength(-20))
             //note that we ought to pass in array of nodes and function
-            .force('x', forceX(rootNode.x! + 5))
-            .force('y', forceY(rootNode.y! + 5))
             //higher is faster, default is .4
             .velocityDecay(0.9)
     );
@@ -270,24 +272,44 @@ const registerTickHandler = <
     });
 };
 
+/* we're going to mutate the tree here --> tree has right data, just needs to snag coords */
+const mapNodeSelectionData = (
+    selectionRoot: ForceNodeSimulationWrapper<ForceNode>,
+    tree: ForceNodeSimulationWrapper<ForceNode>
+): ForceNodeSimulationWrapper<ForceNode> => {
+    //probably don't need these first two
+    tree.vx = selectionRoot.vx;
+    tree.vy = selectionRoot.vy;
+    tree.x = selectionRoot.x;
+    tree.y = selectionRoot.y;
+    if (tree.children && selectionRoot.children) {
+        for (let i = 0; i < tree.children.length; i++) {
+            mapNodeSelectionData(selectionRoot.children[i], tree.children[i]);
+        }
+    }
+    return tree;
+};
+
 /* 
 
-    todo: this should take only a tree 
-    hmmm but what about the coordinates? they should be stored on the selection, right?
+    when data has changed by node-count has not 
+    we might want to think aboug separate functions (which might call the same underlying function)
+    for data updates and additions/subtractions
 
 */
+const updateForceGraph = (tree: ForceNode) => {
+    (tree.children![0] as any).selected = true;
 
-const updateForceGraph = (nodes: ForceNodeSimulationWrapper<ForceNode>) => {
-    //todo: rebuild from new tree
-    const newRoot = mapHierarchyNode(nodes, node => ({
-        ...node,
-        data: {
-            ...node.data,
-            selected: node.data.entity.name.startsWith('G')
-                ? true
-                : node.data.selected,
-        },
-    }));
+    const nodes = hierarchy(tree);
+
+    // what we actually need to do here is merge the new data with the node selection
+    // this is hard b/c Node.children need to be recursively updated, as do Node.data.children
+    // the copy method seems good in theory, which means putting a newData prop on .data and then
+    // seting Node.data to Node.data.newData, but we want to keep the props on the node
+
+    // could be as simple as building a new tree (easy enough, as above) and then copying vx, vy, x, y from
+    // old to new recursively -- hmmm yeah, we'd just need to find root among the selection node data
+    // this is the datum whose parent is null
 
     const nodeSelection = select('g.circle-container').selectAll(
         'circle'
@@ -297,6 +319,12 @@ const updateForceGraph = (nodes: ForceNodeSimulationWrapper<ForceNode>) => {
         any,
         any
     >;
+
+    const selectionRootNode = nodeSelection.data().find(n => !n.parent)!;
+
+    const newRoot = mapNodeSelectionData(selectionRootNode, nodes);
+
+    console.log(nodes);
 
     const linkSelection = select('g.line-container').selectAll(
         'line'
@@ -350,7 +378,7 @@ const updateForceGraph = (nodes: ForceNodeSimulationWrapper<ForceNode>) => {
     );
 
     //initialize simulation (mutate forceLinks)
-    const newSim = buildSimulation2(enterNodes[0], newNodes, forceLinks);
+    const newSim = buildUpdateSimulation(newNodes, forceLinks);
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
     updateLinkData(linkSelection, forceLinks.links());
@@ -419,19 +447,6 @@ const buildForceGraph = (
     nodeSelection.append('title').text(d => d.data.entity.name);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
-
-    const scheduleRefresh = () =>
-        setTimeout(() => {
-            //do we even need to stop it?
-            simulation.stop();
-            updateForceGraph(root);
-        }, 3000);
-
-    scheduleRefresh();
-
-    //we should return simulation so react can stop it, as well as update function
-
-    return svg.node();
 };
 
 export default ForceGraph;

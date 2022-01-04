@@ -258,6 +258,7 @@ export type ModelEntity = Unit | Division | Person | AcademicProgram;
 export interface HydratedLink {
     child: ModelEntity;
     childType: EntityType;
+    id: number;
     parent: ModelEntity;
     parentType: EntityType;
     relationship: Relationship;
@@ -289,9 +290,10 @@ export const hydrateLinks = (model: Model) => {
         {} as ModelMap
     );
 
-    return links.map(l => ({
+    return links.map((l, i) => ({
         child: modelMap[l.vType][l.vId],
         childType: l.vType,
+        id: i + 1,
         parent: modelMap[l.uType][l.uId],
         parentType: l.uType,
         relationship: l.relationship,

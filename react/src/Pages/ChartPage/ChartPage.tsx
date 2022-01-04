@@ -8,6 +8,7 @@ import getModel, {
 } from './../../data/model';
 import { ForceGraph, PackChart } from './../../Visualizations';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
+import debounce from 'lodash.debounce';
 
 const ChartPage: React.FC<{}> = () => {
     const [links, setLinks] = useState<HydratedLink[]>();
@@ -69,16 +70,21 @@ const ChartPage: React.FC<{}> = () => {
                         <TextField {...params} label="Search" />
                     )}
                     options={options}
-                    onInputChange={(event, value, reason) =>
-                        setSelected(
-                            options
-                                .filter(
-                                    option =>
-                                        !!value && option.name.startsWith(value)
-                                )
-                                .map(op => ({ id: op.id, type: op.type }))
-                        )
-                    }
+                    onInputChange={debounce(
+                        (event, value, reason) =>
+                            setSelected(
+                                options
+                                    .filter(
+                                        option =>
+                                            !!value &&
+                                            option.name
+                                                .toLowerCase()
+                                                .includes(value.toLowerCase())
+                                    )
+                                    .map(op => ({ id: op.id, type: op.type }))
+                            ),
+                        500
+                    )}
                     getOptionLabel={option =>
                         `${option.name}${
                             (option as any).campus

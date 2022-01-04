@@ -279,10 +279,6 @@ const registerTickHandler = <
 
 const updateForceGraph = (
     nodes: ForceNodeSimulationWrapper<ForceNode>,
-    simulation: Simulation<
-        ForceNodeSimulationWrapper<ForceNode>,
-        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>
-    >,
     nodeSelection: Selection<
         SVGCircleElement,
         ForceNodeSimulationWrapper<ForceNode>,
@@ -296,9 +292,7 @@ const updateForceGraph = (
         any
     >
 ) => {
-    simulation.stop();
-
-    //todo: this should be handled in react
+    //todo: rebuild from new tree
     const newRoot = mapHierarchyNode(nodes, node => ({
         ...node,
         data: {
@@ -309,9 +303,9 @@ const updateForceGraph = (
         },
     }));
 
-    //fix positions of all but new nodes -- we don't need sim for this
-    const simMap = simulation
-        .nodes()
+    //fix positions of all but new nodes -- we don't need sim for this, can just get it from enter nodes
+    const nodeMap = nodeSelection
+        .data()
         .reduce(
             (acc, curr) => ({ ...acc, [makeNodeKey(curr)]: curr }),
             {} as { [key: string]: any }
@@ -330,12 +324,12 @@ const updateForceGraph = (
         const key = makeNodeKey(nn);
 
         if (
-            (!!simMap[key] && !simMap[key]?.parent) ||
-            (!!simMap[key] &&
-                !enterNodeParentKeys.includes(makeNodeKey(simMap[key]?.parent)))
+            (!!nodeMap[key] && !nodeMap[key]?.parent) ||
+            (!!nodeMap[key] &&
+                !enterNodeParentKeys.includes(makeNodeKey(nodeMap[key]?.parent)))
         ) {
-            nn.fx = simMap[key].x;
-            nn.fy = simMap[key].y;
+            nn.fx = nodeMap[key].x;
+            nn.fy = nodeMap[key].y;
         }
     });
 
@@ -421,18 +415,15 @@ const buildForceGraph = (
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
     const scheduleRefresh = () =>
-        setTimeout(
-            () =>
-                updateForceGraph(
-                    root,
-                    simulation,
-                    nodeSelection,
-                    linkSelection
-                ),
-            3000
-        );
+        setTimeout(() => {
+            //do we even need to stop it?
+            simulation.stop();
+            updateForceGraph(root, nodeSelection, linkSelection);
+        }, 3000);
 
     scheduleRefresh();
+
+    //we should return simulation so react can stop it, as well as update function
 
     return svg.node();
 };

@@ -13,7 +13,7 @@ import {
     ForceLink,
     Simulation,
 } from 'd3-force';
-import React, { useLayoutEffect, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
     EntityType,
     HierarchicalNode,
@@ -33,15 +33,23 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     rootModel,
     rootModelType,
 }) => {
+    const [chartRendered, setChartRendered] = useState(false);
+
     const tree = useMemo(() => {
         return buildTree(rootModel, rootModelType, 'root', links);
     }, [links, rootModel, rootModelType]);
 
+    useEffect(() => {}, [tree]);
+
     useLayoutEffect(() => {
-        if (tree) {
+        // todo: this ought to return function for updating
+        // we memoize returned element so it never rerenders
+        // then when links change we call update function
+        if (tree && !chartRendered) {
             buildForceGraph(tree, 'test', 1000, 700);
+            setChartRendered(true);
         }
-    }, [tree]);
+    }, [chartRendered, tree]);
 
     return <span id="test" />;
 };
@@ -262,6 +270,13 @@ const registerTickHandler = <
     });
 };
 
+/* 
+
+    todo: this should take only a tree 
+    hmmm but what about the coordinates? they should be stored on the selection, right?
+
+*/
+
 const updateForceGraph = (
     nodes: ForceNodeSimulationWrapper<ForceNode>,
     simulation: Simulation<
@@ -294,7 +309,7 @@ const updateForceGraph = (
         },
     }));
 
-    //fix positions of all but new nodes
+    //fix positions of all but new nodes -- we don't need sim for this
     const simMap = simulation
         .nodes()
         .reduce(

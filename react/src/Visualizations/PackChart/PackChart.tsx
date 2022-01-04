@@ -15,7 +15,7 @@ import getModel, {
     Model,
     ModelEntity,
     Relationship,
-} from '../data/model';
+} from '../../data/model';
 
 const PackChart: React.FC = () => {
     const [model, setModel] = useState<Model>();

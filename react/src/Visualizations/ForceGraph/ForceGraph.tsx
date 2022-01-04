@@ -20,7 +20,7 @@ import {
     HydratedLink,
     ModelEntity,
     Relationship,
-} from '../data/model';
+} from '../../data/model';
 
 // for debugging
 (window as any).d3Select = select;
@@ -192,7 +192,7 @@ const updateNodeData = <T extends ForceNode>(
 
         enterSelection
             .transition()
-            //.attr('r', d => (d.data.selected ? 10 : 3.5))
+            .attr('r', d => (d.data.selected ? 5 : 3.5))
             .attr('fill', function (d) {
                 return d.data.selected ? 'red' : select(this).attr('fill');
             })
@@ -270,14 +270,12 @@ const registerTickHandler = <
     });
 };
 
-/* we're going to mutate the tree here --> tree has right data, just needs to snag coords */
+/* we're going to mutate the tree so it has the coorodinates from the previous simulation*/
 const mapNodeSelectionData = (
     selectionRoot: ForceNodeSimulationWrapper<ForceNode>,
     tree: ForceNodeSimulationWrapper<ForceNode>
 ): ForceNodeSimulationWrapper<ForceNode> => {
     //probably don't need these first two
-    tree.vx = selectionRoot.vx;
-    tree.vy = selectionRoot.vy;
     tree.x = selectionRoot.x;
     tree.y = selectionRoot.y;
     if (tree.children && selectionRoot.children) {

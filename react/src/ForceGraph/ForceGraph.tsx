@@ -13,47 +13,35 @@ import {
     ForceLink,
     Simulation,
 } from 'd3-force';
-import React, { useEffect, useLayoutEffect, useState } from 'react';
-import getModel, {
-    Campus,
+import React, { useLayoutEffect, useMemo } from 'react';
+import {
     EntityType,
     HierarchicalNode,
     HydratedLink,
-    hydrateLinks,
-    Model,
     ModelEntity,
     Relationship,
 } from '../data/model';
 
-const ForceGraph: React.FC<{}> = () => {
-    const [model, setModel] = useState<Model>();
-    const [nodes, setNodes] = useState<HierarchicalNode>();
+interface ForceGraphProps {
+    links: HydratedLink[];
+    rootModel: ModelEntity;
+    rootModelType: EntityType;
+}
+
+const ForceGraph: React.FC<ForceGraphProps> = ({
+    links,
+    rootModel,
+    rootModelType,
+}) => {
+    const tree = useMemo(() => {
+        return buildTree(rootModel, rootModelType, 'root', links);
+    }, [links, rootModel, rootModelType]);
 
     useLayoutEffect(() => {
-        if (nodes) {
-            buildForceGraph(nodes, 'test', 1000, 700);
+        if (tree) {
+            buildForceGraph(tree, 'test', 1000, 700);
         }
-    }, [nodes]);
-
-    useEffect(() => {
-        const _getModel = async () => {
-            const model = await getModel();
-            setModel(model);
-        };
-        _getModel();
-    }, []);
-
-    useEffect(() => {
-        if (model) {
-            const stGeorge = model.campus.find(c =>
-                c.name.includes('eorge')
-            ) as Campus;
-
-            setNodes(
-                buildTree(stGeorge, 'campus', 'root', hydrateLinks(model))
-            );
-        }
-    }, [model]);
+    }, [tree]);
 
     return <span id="test" />;
 };

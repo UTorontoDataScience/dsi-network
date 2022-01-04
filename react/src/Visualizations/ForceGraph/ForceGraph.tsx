@@ -45,6 +45,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     selectedModels,
 }) => {
     const [chartRendered, setChartRendered] = useState(false);
+    // we need to manually stop the simulation to prevent memory leaks from the tick event
+    const [simulation, setSimulation] = useState<Simulation<any, any>>();
 
     const tree = useMemo(() => {
         return buildTree(
@@ -57,14 +59,15 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     }, [links, rootModel, rootModelType, selectedModels]);
 
     useEffect(() => {
-        if (tree && chartRendered) {
-            updateForceGraph(tree);
+        if (tree && chartRendered && selectedModels) {
+            simulation!.stop();
+            setSimulation(updateForceGraph(tree));
         }
-    }, [tree]);
+    }, [selectedModels]);
 
     useLayoutEffect(() => {
         if (tree && !chartRendered) {
-            buildForceGraph(tree, 'test', 1000, 700);
+            setSimulation(buildForceGraph(tree, 'test', 1000, 700));
             setChartRendered(true);
         }
     }, [chartRendered, tree]);
@@ -148,12 +151,12 @@ const buildUpdateSimulation = <T,>(
 ) => {
     return (
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
-            .force('d', forceLinks)
+            .force('d', forceLinks.strength(1))
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
             .force('charge', forceManyBody().strength(-20))
             //note that we ought to pass in array of nodes and function
             //higher is faster, default is .4
-            .velocityDecay(0.9)
+            .velocityDecay(0.7)
     );
 };
 
@@ -352,12 +355,18 @@ const updateForceGraph = (tree: ForceNode) => {
     );
 
     //initialize simulation (mutate forceLinks)
-    const newSim = buildUpdateSimulation(newNodes, forceLinks);
+    const simulation = buildUpdateSimulation(newNodes, forceLinks);
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
     updateLinkData(linkSelection, forceLinks.links());
 
-    registerTickHandler(newSim, selectAll('line') as any, selectAll('circle'));
+    registerTickHandler(
+        simulation,
+        selectAll('line') as any,
+        selectAll('circle')
+    );
+
+    return simulation;
 };
 
 const buildForceGraph = (
@@ -421,6 +430,8 @@ const buildForceGraph = (
     nodeSelection.append('title').text(d => d.data.entity.name);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
+
+    return simulation;
 };
 
 export default ForceGraph;

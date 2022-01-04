@@ -34,7 +34,7 @@ const ChartPage: React.FC<{}> = () => {
                     (op, i, arr) =>
                         arr.findIndex(
                             inner =>
-                                //inner.id === op.id && inner.type === op.type
+                                //inner.id === op.id && inner.type === op.type --> will let in dupes, need to make sure programs have campus name appended
                                 inner.name === op.name
                         ) === i && op.name
                 );
@@ -72,7 +72,10 @@ const ChartPage: React.FC<{}> = () => {
                     onInputChange={(event, value, reason) =>
                         setSelected(
                             options
-                                .filter(option => option.name.startsWith(value))
+                                .filter(
+                                    option =>
+                                        !!value && option.name.startsWith(value)
+                                )
                                 .map(op => ({ id: op.id, type: op.type }))
                         )
                     }

@@ -129,6 +129,12 @@ interface ForceLinkSimulationWrapper<T> extends SimulationLinkDatum<T> {}
 const makeNodeKey = (datum: ForceNodeSimulationWrapper<ForceNode>) =>
     `${datum.data.entity.id}-${datum.data.type}-${datum.parent?.data.entity.id}-${datum.data.relationToParent}-${datum.data.selected}`;
 
+/* For when we want to identify a node but don't care about selection state   */
+const makeNodeKeyIgnoreSelected = (
+    datum: ForceNodeSimulationWrapper<ForceNode>
+) =>
+    `${datum.data.entity.id}-${datum.data.type}-${datum.parent?.data.entity.id}-${datum.data.relationToParent}`;
+
 /**
  *  Unique key used to identify links for d3.join process
  */
@@ -326,35 +332,47 @@ const updateForceGraph = (tree: ForceNode) => {
         any
     >;
 
-    //fix positions of all but new nodes -- we don't need sim for this, can just get it from enter nodes
-    const nodeMap = nodeSelection
-        .data()
-        .reduce(
-            (acc, curr) => ({ ...acc, [makeNodeKey(curr)]: curr }),
-            {} as { [key: string]: any }
-        );
+    //fix positions of all but new nodes
+    const nodeMap = nodeSelection.data().reduce(
+        (acc, curr) => ({
+            ...acc,
+            [makeNodeKeyIgnoreSelected(curr)]: curr,
+        }),
+        {} as { [key: string]: any }
+    );
 
     const simulationNodes =
         newRoot.descendants() as ForceNodeSimulationWrapper<ForceNode>[];
 
     // bind new data to dom selection so tickHandler can read it
+    // todo: set all children of any selected parent as selected (can do this in parent )
     const enterNodes = updateNodeData(nodeSelection, simulationNodes);
 
-    // for selected parent nodes, add its children to the simulation but not the node itself
-    // for selected child nodes, add siblings to the the simulation
+    const enterNodeKeys = enterNodes.map(n => makeNodeKeyIgnoreSelected(n));
 
     const enterNodeParentKeys = enterNodes
         .filter(en => en.parent)
-        .map(en => makeNodeKey(en.parent!));
+        .map(en => makeNodeKeyIgnoreSelected(en.parent!));
 
+    // need a recursive solution here...
+    const enterNodeChildKeys = enterNodes
+        .filter(en => !!en.children)
+        .flatMap(en => en.children!.map(makeNodeKeyIgnoreSelected));
+
+    // for enter parent nodes, add its leaves to the simulation but not the node itself
+    // for enter leaf nodes, add siblings to the the simulation
+    // add enter leaf nodes to the simulation
     simulationNodes.forEach(nn => {
-        const key = makeNodeKey(nn);
-
+        const key = makeNodeKeyIgnoreSelected(nn);
         if (
-            (!!nodeMap[key] && nodeMap[key]?.children) ||
-            (!!nodeMap[key] &&
-                !enterNodeParentKeys.includes(
-                    makeNodeKey(nodeMap[key]?.parent)
+            nodeMap[key]?.children ||
+            (!enterNodeChildKeys.includes(key) &&
+                !enterNodeKeys.includes(key) &&
+                !(
+                    nodeMap[key]?.parent &&
+                    enterNodeParentKeys.includes(
+                        makeNodeKeyIgnoreSelected(nodeMap[key]?.parent)
+                    )
                 ))
         ) {
             nn.fx = nodeMap[key].x;

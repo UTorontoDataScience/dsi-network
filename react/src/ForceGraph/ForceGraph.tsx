@@ -277,21 +277,7 @@ const registerTickHandler = <
 
 */
 
-const updateForceGraph = (
-    nodes: ForceNodeSimulationWrapper<ForceNode>,
-    nodeSelection: Selection<
-        SVGCircleElement,
-        ForceNodeSimulationWrapper<ForceNode>,
-        any,
-        any
-    >,
-    linkSelection: Selection<
-        SVGLineElement,
-        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
-        any,
-        any
-    >
-) => {
+const updateForceGraph = (nodes: ForceNodeSimulationWrapper<ForceNode>) => {
     //todo: rebuild from new tree
     const newRoot = mapHierarchyNode(nodes, node => ({
         ...node,
@@ -302,6 +288,24 @@ const updateForceGraph = (
                 : node.data.selected,
         },
     }));
+
+    const nodeSelection = select('g.circle-container').selectAll(
+        'circle'
+    ) as Selection<
+        SVGCircleElement,
+        ForceNodeSimulationWrapper<ForceNode>,
+        any,
+        any
+    >;
+
+    const linkSelection = select('g.line-container').selectAll(
+        'line'
+    ) as Selection<
+        SVGLineElement,
+        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
+        any,
+        any
+    >;
 
     //fix positions of all but new nodes -- we don't need sim for this, can just get it from enter nodes
     const nodeMap = nodeSelection
@@ -326,7 +330,9 @@ const updateForceGraph = (
         if (
             (!!nodeMap[key] && !nodeMap[key]?.parent) ||
             (!!nodeMap[key] &&
-                !enterNodeParentKeys.includes(makeNodeKey(nodeMap[key]?.parent)))
+                !enterNodeParentKeys.includes(
+                    makeNodeKey(nodeMap[key]?.parent)
+                ))
         ) {
             nn.fx = nodeMap[key].x;
             nn.fy = nodeMap[key].y;
@@ -418,7 +424,7 @@ const buildForceGraph = (
         setTimeout(() => {
             //do we even need to stop it?
             simulation.stop();
-            updateForceGraph(root, nodeSelection, linkSelection);
+            updateForceGraph(root);
         }, 3000);
 
     scheduleRefresh();

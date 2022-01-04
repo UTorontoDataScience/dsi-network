@@ -22,6 +22,7 @@ import {
     Relationship,
 } from '../data/model';
 
+// for debugging
 (window as any).d3Select = select;
 (window as any).d3SelectAll = selectAll;
 
@@ -108,24 +109,6 @@ const makeLinkKey = <T extends ForceNode>(
     const source = link.source as ForceNodeSimulationWrapper<T>;
     const target = link.target as ForceNodeSimulationWrapper<T>;
     return `${source.data.entity.id}-${source.parent?.id}-${target.data.selected}-${target.data.entity.id}`;
-};
-
-//todo: this should be MapDATA
-const mapHierarchyNode = <T,>(
-    node: HierarchyNode<T>,
-    fn: (data: HierarchyNode<T>) => HierarchyNode<T>
-): HierarchyNode<T> => {
-    //d3 doesn't export the constructor to its hierarchical node so we need to clone
-    const newNode = fn(node);
-    // @ts-ignore
-    newNode.__proto__ = node.__proto__;
-    newNode.children = [];
-    if (node.children) {
-        node.children.forEach(c =>
-            newNode.children?.push(mapHierarchyNode(c, fn))
-        );
-    }
-    return newNode;
 };
 
 const buildSimulation = <T,>(
@@ -323,8 +306,6 @@ const updateForceGraph = (tree: ForceNode) => {
     const selectionRootNode = nodeSelection.data().find(n => !n.parent)!;
 
     const newRoot = mapNodeSelectionData(selectionRootNode, nodes);
-
-    console.log(nodes);
 
     const linkSelection = select('g.line-container').selectAll(
         'line'

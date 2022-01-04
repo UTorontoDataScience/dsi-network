@@ -66,6 +66,7 @@ const ChartPage: React.FC<{}> = () => {
                     isOptionEqualToValue={(option, value) =>
                         option.name === value.name
                     }
+                    clearOnEscape
                     renderInput={params => (
                         <TextField {...params} label="Search" />
                     )}

@@ -1,5 +1,7 @@
 import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
 import { select, selectAll, Selection } from 'd3-selection';
+import { scaleOrdinal } from 'd3-scale';
+import { schemeDark2 } from 'd3-scale-chromatic';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 
 import {
@@ -99,6 +101,18 @@ const buildTree = (
     };
 };
 
+const entityTypes: EntityType[] = [
+    'campus',
+    'division',
+    'person',
+    'program',
+    'unit',
+];
+
+const colorScale = scaleOrdinal(
+    schemeDark2.filter((_, i) => i !== 3) //remove red, since that's our highlight color
+).domain(entityTypes);
+
 interface ForceNode extends HierarchicalNode {
     selected?: boolean;
 }
@@ -186,7 +200,7 @@ const updateNodeData = <T extends ForceNode>(
     bound.join(enter => {
         const enterSelection = enter
             .append('circle')
-            .attr('fill', d => (d.children ? null : 'black'))
+            .attr('fill', d => colorScale(d.data.entity.type))
             .attr('stroke', d => (d.children ? null : '#fff'))
             .attr('r', 3.5);
 
@@ -320,20 +334,24 @@ const updateForceGraph = (tree: ForceNode) => {
             {} as { [key: string]: any }
         );
 
-    const newNodes =
+    const simulationNodes =
         newRoot.descendants() as ForceNodeSimulationWrapper<ForceNode>[];
 
     // bind new data to dom selection so tickHandler can read it
-    const enterNodes = updateNodeData(nodeSelection, newNodes);
+    const enterNodes = updateNodeData(nodeSelection, simulationNodes);
+
+    // for selected parent nodes, add its children to the simulation but not the node itself
+    // for selected child nodes, add siblings to the the simulation
+
     const enterNodeParentKeys = enterNodes
         .filter(en => en.parent)
         .map(en => makeNodeKey(en.parent!));
 
-    newNodes.forEach(nn => {
+    simulationNodes.forEach(nn => {
         const key = makeNodeKey(nn);
 
         if (
-            (!!nodeMap[key] && !nodeMap[key]?.parent) ||
+            (!!nodeMap[key] && nodeMap[key]?.children) ||
             (!!nodeMap[key] &&
                 !enterNodeParentKeys.includes(
                     makeNodeKey(nodeMap[key]?.parent)
@@ -345,7 +363,7 @@ const updateForceGraph = (tree: ForceNode) => {
     });
 
     // build new force links (can't reuse old)
-    // map to ensure that newNodes and their latest locations are looked up at initialization time
+    // map to ensure that simulationNodes and their latest locations are looked up at initialization time
     // (init time is when data is updated/mutated)
     const forceLinks = buildForceLinks(newRoot.links()).links(
         newRoot.links().map(l => ({
@@ -355,7 +373,7 @@ const updateForceGraph = (tree: ForceNode) => {
     );
 
     //initialize simulation (mutate forceLinks)
-    const simulation = buildUpdateSimulation(newNodes, forceLinks);
+    const simulation = buildUpdateSimulation(simulationNodes, forceLinks);
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
     updateLinkData(linkSelection, forceLinks.links());
@@ -406,7 +424,6 @@ const buildForceGraph = (
     const nodeSelection = svg
         .append('g')
         .attr('class', 'circle-container')
-        .attr('fill', '#fff')
         .attr('stroke', '#000')
         .attr('stroke-width', 1.5)
         .selectAll('circle')
@@ -416,9 +433,7 @@ const buildForceGraph = (
                 d ? makeNodeKey(d as ForceNodeSimulationWrapper<ForceNode>) : i
         )
         .join('circle')
-        .attr('fill', d =>
-            d.children ? null : d.data.selected ? 'red' : 'black'
-        )
+        .attr('fill', d => colorScale(d.data.entity.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 3.5) as Selection<
         SVGCircleElement,

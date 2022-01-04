@@ -3,6 +3,7 @@ import {
     AcademicProgramsDataRaw,
     PersonDataRaw,
     Person,
+    BaseEntity,
 } from '../types';
 
 // once we're confident, we'll want to save this as json rather than recreating it all the time for the sake of reproducibility
@@ -17,13 +18,14 @@ const strToBool = (type?: string) =>
     type && type.toLowerCase() === 'yes' ? true : false;
 
 const transformPrograms = (data: AcademicProgramsDataRaw[]) =>
-    data.map((u, id) => ({
+    data.map<AcademicProgram>((u, id) => ({
         ...u,
         id: id + 1,
         is_education: strToBool(u.type_education),
         is_research: strToBool(u.type_research),
         is_resource: strToBool(u.type_resource),
         name: u.program,
+        type: 'program' as 'program',
     }));
 
 const fetchPeopleData = async () => {
@@ -42,23 +44,17 @@ const transformPeople = (data: PersonDataRaw[]) =>
         ),
         id: id + 1,
         name: `${u.first} ${u.last}`,
+        type: 'person',
     })) as Person[];
 
-export interface Campus {
-    name: string;
-    id: number;
-}
+export interface Campus extends BaseEntity {}
 
-export interface Division {
+export interface Division extends BaseEntity {
     campusId?: number;
-    id: number;
-    name: string;
 }
 
-export interface Unit {
-    id: number;
+export interface Unit extends BaseEntity {
     divisionId?: number;
-    name: string;
 }
 
 export interface EntityDict {
@@ -114,6 +110,7 @@ const createDivisionsLinksAndUnits = (
         .map((d, id) => ({
             name: d,
             id: id + 1,
+            type: 'campus' as 'campus',
         }));
 
     const division: Division[] = programs
@@ -121,6 +118,7 @@ const createDivisionsLinksAndUnits = (
             id: p.id,
             name: p.division,
             campusId: campus.find(c => c.name === p.campus)?.id,
+            type: 'division' as 'division',
         }))
         .filter(uniqueBy('name'));
 
@@ -130,6 +128,7 @@ const createDivisionsLinksAndUnits = (
             id: p.id,
             name: p.unit!,
             divisionId: division.find(d => d.name === p.division)?.id,
+            type: 'unit' as 'unit',
         }))
         .filter(uniqueBy('name'));
 

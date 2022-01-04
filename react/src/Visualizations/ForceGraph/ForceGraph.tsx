@@ -26,7 +26,7 @@ import {
 (window as any).d3Select = select;
 (window as any).d3SelectAll = selectAll;
 
-interface SelectedModel {
+export interface SelectedModel {
     type: EntityType;
     id: number;
 }
@@ -57,13 +57,10 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     }, [links, rootModel, rootModelType, selectedModels]);
 
     useEffect(() => {
-        setTimeout(() => {
-            const newTree = buildTree(rootModel, rootModelType, 'root', links, [
-                { type: 'person', id: 42 },
-            ]);
-            updateForceGraph(newTree);
-        }, 3000);
-    }, [links, rootModel, rootModelType]);
+        if (tree && chartRendered) {
+            updateForceGraph(tree);
+        }
+    }, [tree]);
 
     useLayoutEffect(() => {
         if (tree && !chartRendered) {

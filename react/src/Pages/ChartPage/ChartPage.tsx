@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Grid } from '@mui/material';
 import getModel, {
     Campus,
     HydratedLink,
@@ -21,26 +22,23 @@ const ChartPage: React.FC<{}> = () => {
     }, []);
 
     return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}
-        >
+        <Grid container>
             {/* <PackChart /> */}
-            {model && links && (
-                <ForceGraph
-                    links={links}
-                    rootModel={
-                        model.campus.find(c =>
-                            c.name.includes('eorge')
-                        ) as Campus
-                    }
-                    rootModelType="campus"
-                />
-            )}
-        </div>
+            <Grid item xs={9}>
+                {model && links && (
+                    <ForceGraph
+                        links={links}
+                        rootModel={
+                            model.campus.find(c =>
+                                c.name.includes('eorge')
+                            ) as Campus
+                        }
+                        rootModelType="campus"
+                    />
+                )}
+            </Grid>
+            <Grid item xs={9}></Grid>
+        </Grid>
     );
 };
 

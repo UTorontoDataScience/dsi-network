@@ -255,6 +255,7 @@ const getModel = async (): Promise<Model> => {
 
 export type ModelEntity = Unit | Division | Person | AcademicProgram;
 
+//todo: d3.hierarchy can probably take it from here
 export interface HydratedLink {
     child: ModelEntity;
     childType: EntityType;

@@ -26,26 +26,41 @@ import {
 (window as any).d3Select = select;
 (window as any).d3SelectAll = selectAll;
 
+interface SelectedModel {
+    type: EntityType;
+    id: number;
+}
+
 interface ForceGraphProps {
     links: HydratedLink[];
     rootModel: ModelEntity;
     rootModelType: EntityType;
+    selectedModels?: SelectedModel[];
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     links,
     rootModel,
     rootModelType,
+    selectedModels,
 }) => {
     const [chartRendered, setChartRendered] = useState(false);
 
     const tree = useMemo(() => {
-        return buildTree(rootModel, rootModelType, 'root', links);
-    }, [links, rootModel, rootModelType]);
+        return buildTree(
+            rootModel,
+            rootModelType,
+            'root',
+            links,
+            selectedModels
+        );
+    }, [links, rootModel, rootModelType, selectedModels]);
 
     useEffect(() => {
         setTimeout(() => {
-            const newTree = buildTree(rootModel, rootModelType, 'root', links);
+            const newTree = buildTree(rootModel, rootModelType, 'root', links, [
+                { type: 'person', id: 42 },
+            ]);
             updateForceGraph(newTree);
         }, 3000);
     }, [links, rootModel, rootModelType]);
@@ -64,24 +79,24 @@ const buildTree = (
     root: ModelEntity,
     rootType: EntityType,
     relationship: Relationship | 'root',
-    links: HydratedLink[]
+    links: HydratedLink[],
+    selected = [] as SelectedModel[]
 ): ForceNode => {
     const childLinks = links.filter(
         l => l.parentType === rootType && l.parent.id === root.id
     );
 
-    const res: HierarchicalNode = {
+    return {
         entity: root,
         relationToParent: relationship,
+        selected: !!selected.find(s => s.id === root.id && s.type === rootType),
         type: rootType,
         children: [
             ...childLinks.map(c =>
-                buildTree(c.child, c.childType, c.relationship, links)
+                buildTree(c.child, c.childType, c.relationship, links, selected)
             ),
         ],
     };
-
-    return res;
 };
 
 interface ForceNode extends HierarchicalNode {
@@ -273,26 +288,8 @@ const mapNodeSelectionData = (
     return tree;
 };
 
-/* 
-
-    when data has changed by node-count has not 
-    we might want to think aboug separate functions (which might call the same underlying function)
-    for data updates and additions/subtractions
-
-*/
 const updateForceGraph = (tree: ForceNode) => {
-    (tree.children![0] as any).selected = true;
-
     const nodes = hierarchy(tree);
-
-    // what we actually need to do here is merge the new data with the node selection
-    // this is hard b/c Node.children need to be recursively updated, as do Node.data.children
-    // the copy method seems good in theory, which means putting a newData prop on .data and then
-    // seting Node.data to Node.data.newData, but we want to keep the props on the node
-
-    // could be as simple as building a new tree (easy enough, as above) and then copying vx, vy, x, y from
-    // old to new recursively -- hmmm yeah, we'd just need to find root among the selection node data
-    // this is the datum whose parent is null
 
     const nodeSelection = select('g.circle-container').selectAll(
         'circle'
@@ -305,6 +302,7 @@ const updateForceGraph = (tree: ForceNode) => {
 
     const selectionRootNode = nodeSelection.data().find(n => !n.parent)!;
 
+    //map coordinates from previous simulations to new data
     const newRoot = mapNodeSelectionData(selectionRootNode, nodes);
 
     const linkSelection = select('g.line-container').selectAll(

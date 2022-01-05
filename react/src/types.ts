@@ -1,6 +1,6 @@
 //todo: all need to extend a BaseEntity type that has id, name, type properties
 
-import { EntityType } from './data/model';
+import { EntityType, ModelEntity } from './data/model';
 
 export interface BaseEntity {
     id: number;
@@ -334,3 +334,13 @@ export interface Person extends BaseEntity {
     main_funding_position_private_write_in_1: string;
     main_funding_position_private_write_in_2: string;
 }
+
+/* typeguards for Person and Program */
+
+export const isPerson = (person: Person | ModelEntity): person is Person =>
+    !!(person as Person).primary_role;
+
+export const isProgram = (
+    program: AcademicProgram | ModelEntity
+): program is AcademicProgram =>
+    !!(program as AcademicProgram).degree_designation;

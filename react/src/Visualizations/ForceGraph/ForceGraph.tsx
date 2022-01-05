@@ -1,5 +1,5 @@
 import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { select, selectAll, Selection } from 'd3-selection';
+import { BaseType, select, selectAll, Selection } from 'd3-selection';
 import { scaleOrdinal } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import 'd3-transition'; // must be imported so selection.transition will resolve
@@ -32,7 +32,6 @@ export interface SelectedModel {
     type: EntityType;
     id: number;
 }
-
 interface ForceGraphProps {
     links: HydratedLink[];
     rootModel: ModelEntity;
@@ -110,7 +109,7 @@ const entityTypes: EntityType[] = [
 ];
 
 const colorScale = scaleOrdinal(
-    schemeDark2.filter((_, i) => i !== 3) //remove red, since that's our highlight color
+    schemeDark2.filter((_, i) => ![3, 4].includes(i)) //remove red, since that's our highlight color
 ).domain(entityTypes);
 
 interface ForceNode extends HierarchicalNode {
@@ -156,11 +155,11 @@ const buildSimulation = <T,>(
     forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
         .force('d', forceLinks)
         //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-        .force('charge', forceManyBody().strength(-20))
+        .force('charge', forceManyBody().strength(-50))
         .force('x', forceX())
         .force('y', forceY())
         //higher is slower, default is .4
-        .velocityDecay(0.5);
+        .velocityDecay(0.4);
 
 const buildUpdateSimulation = <T,>(
     nodes: HierarchyNode<T>[],
@@ -173,7 +172,7 @@ const buildUpdateSimulation = <T,>(
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
             .force('d', forceLinks.strength(1))
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-            .force('charge', forceManyBody().strength(-20))
+            .force('charge', forceManyBody().strength(-50))
             //note that we ought to pass in array of nodes and function
             //higher is faster, default is .4
             .velocityDecay(0.7)
@@ -186,7 +185,7 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
     >(links)
         .id(model => makeNodeKey(model))
-        .distance(5)
+        .distance(12)
         .strength(1);
 
 /**
@@ -208,17 +207,15 @@ const updateNodeData = <T extends ForceNode>(
             .append('circle')
             .attr('fill', d => colorScale(d.data.entity.type))
             .attr('stroke', d => (d.children ? null : '#fff'))
-            .attr('r', 3.5);
+            .attr('r', 5);
 
         enterSelection
             .transition()
-            .attr('r', d => (d.data.selected ? 5 : 3.5))
+            .attr('r', d => (d.data.selected ? 10 : 5))
             .attr('fill', function (d) {
                 return d.data.selected ? 'red' : select(this).attr('fill');
             })
-            .duration(500);
-        //append separately so it doesn't get returned
-        enterSelection.append('title').text(d => d.data.entity.name);
+            .duration(1500);
 
         return enterSelection;
     });
@@ -266,7 +263,6 @@ const registerTickHandler = <
     >
 ) => {
     // simulation mutates data bound to nodes by reference
-    // at each tick, update the element with the new value
     simulation.on('tick', () => {
         nodeSelection.attr('cx', d => d.x!).attr('cy', d => d.y!);
 
@@ -290,12 +286,11 @@ const registerTickHandler = <
     });
 };
 
-/* we're going to mutate the tree so it has the coorodinates from the previous simulation*/
+/*  mutate the tree so it has the coorodinates from the previous simulation*/
 const mapNodeSelectionData = (
     selectionRoot: ForceNodeSimulationWrapper<ForceNode>,
     tree: ForceNodeSimulationWrapper<ForceNode>
 ): ForceNodeSimulationWrapper<ForceNode> => {
-    //probably don't need these first two
     tree.x = selectionRoot.x;
     tree.y = selectionRoot.y;
     if (tree.children && selectionRoot.children) {
@@ -304,6 +299,19 @@ const mapNodeSelectionData = (
         }
     }
     return tree;
+};
+
+const showToolTip = (e: MouseEvent) => {
+    select('.tooltip')
+        .text((e!.target as any).__data__.data.entity.name)
+        .style('visibility', 'visible')
+        .style('left', `${e.pageX}px`)
+        .style('top', `${e.pageY - 25}px`);
+    //.attr('transform', `translate(${e.offsetX},${e.offsetY})`);
+};
+
+const hideToolTip = (e: MouseEvent) => {
+    select('.tooltip').style('visibility', 'hidden');
 };
 
 const updateForceGraph = (tree: ForceNode) => {
@@ -453,18 +461,58 @@ const buildForceGraph = (
         .join('circle')
         .attr('fill', d => colorScale(d.data.entity.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
-        .attr('r', 3.5) as Selection<
+        .attr('r', 5)
+        .on('mouseover', (d: MouseEvent) => showToolTip(d))
+        .on('mouseout', (d: MouseEvent) => hideToolTip(d)) as Selection<
         SVGCircleElement,
         ForceNodeSimulationWrapper<ForceNode>,
         SVGGElement,
         unknown
     >;
 
-    nodeSelection.append('title').text(d => d.data.entity.name);
-
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
+    drawLegend(height, width);
+
+    buildToolTip();
+
     return simulation;
+};
+
+const drawLegend = (h: number, w: number) => {
+    const svg = select('svg');
+
+    svg.selectAll('g.legend')
+        .data(colorScale.domain())
+        .join('g')
+        .attr('transform', (_, i) => `translate(${w / 2 - 75}, ${i * 20})`)
+        .attr('class', 'legend')
+        .append('circle')
+        .attr('r', 5)
+        .attr('fill', d => colorScale(d));
+
+    svg.selectAll<BaseType, string>('g.legend')
+        .append('text')
+        .text((d: string) =>
+            d
+                .split('')
+                .map((l, i) => (i === 0 ? l.toUpperCase() : l))
+                .join('')
+        )
+        .attr('transform', `translate(12, 5)`);
+};
+
+const buildToolTip = () => {
+    select('body')
+        .append('div')
+        .attr('class', 'tooltip')
+        .style('position', 'absolute')
+        .style('background-color', 'black')
+        .style('padding', '5px')
+        .style('border-radius', '2px')
+        .style('font-size', '10px')
+        .style('visibility', 'hidden')
+        .style('color', 'white');
 };
 
 export default ForceGraph;

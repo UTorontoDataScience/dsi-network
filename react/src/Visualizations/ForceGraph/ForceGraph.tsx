@@ -116,7 +116,7 @@ interface ForceNode extends HierarchicalNode {
     selected?: boolean;
 }
 
-/* for correct tying for data annotated with coordinates by forceLink/simulation, we need to extend these interfaces */
+/* for correct tying for data to be annotated with coordinates by forceLink/simulation, we need to extend these interfaces */
 interface ForceNodeSimulationWrapper<T>
     extends HierarchyNode<T>,
         SimulationNodeDatum {}
@@ -253,14 +253,14 @@ const registerTickHandler = <
     linkSelection: Selection<
         SVGLineElement,
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
-        SVGGElement,
+        BaseType,
         unknown
     >,
     nodeSelection: Selection<
         SVGCircleElement,
         ForceNodeSimulationWrapper<T>,
-        any,
-        any
+        BaseType,
+        unknown
     >
 ) => {
     // simulation mutates data bound to nodes by reference
@@ -330,40 +330,33 @@ const hideToolTip = (e: MouseEvent) => {
 const updateForceGraph = (tree: ForceNode) => {
     const nodes = hierarchy(tree);
 
-    const nodeSelection = select('g.circle-container').selectAll(
-        'circle'
-    ) as Selection<
+    const nodeSelection = select('g.circle-container').selectAll<
         SVGCircleElement,
-        ForceNodeSimulationWrapper<ForceNode>,
-        any,
-        any
-    >;
+        ForceNodeSimulationWrapper<ForceNode>
+    >('circle');
 
     const selectionRootNode = nodeSelection.data().find(n => !n.parent)!;
 
     //map coordinates from previous simulations to new data
     const newRoot = mapNodeSelectionData(selectionRootNode, nodes);
 
-    const linkSelection = select('g.line-container').selectAll(
-        'line'
-    ) as Selection<
+    const linkSelection = select('g.line-container').selectAll<
         SVGLineElement,
-        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
-        any,
-        any
-    >;
+        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>
+    >('line');
 
     //fix positions of all but new nodes
-    const nodeMap = nodeSelection.data().reduce(
-        (acc, curr) => ({
-            ...acc,
-            [makeNodeKeyIgnoreSelected(curr)]: curr,
-        }),
-        {} as { [key: string]: any }
-    );
+    const nodeMap = nodeSelection
+        .data()
+        .reduce<Record<string, ForceNodeSimulationWrapper<ForceNode>>>(
+            (acc, curr) => ({
+                ...acc,
+                [makeNodeKeyIgnoreSelected(curr)]: curr,
+            }),
+            {}
+        );
 
-    const simulationNodes =
-        newRoot.descendants() as ForceNodeSimulationWrapper<ForceNode>[];
+    const simulationNodes = newRoot.descendants();
 
     // bind new data to dom selection so tickHandler can read it
     // todo: set all children of any selected parent as selected (can do this in parent )
@@ -392,7 +385,7 @@ const updateForceGraph = (tree: ForceNode) => {
                 !(
                     nodeMap[key]?.parent &&
                     enterNodeParentKeys.includes(
-                        makeNodeKeyIgnoreSelected(nodeMap[key]?.parent)
+                        makeNodeKeyIgnoreSelected(nodeMap[key].parent!)
                     )
                 ))
         ) {
@@ -419,7 +412,10 @@ const updateForceGraph = (tree: ForceNode) => {
 
     registerTickHandler(
         simulation,
-        selectAll('line') as any,
+        selectAll<
+            SVGLineElement,
+            ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>
+        >('line'),
         selectAll('circle')
     );
 

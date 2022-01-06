@@ -24,7 +24,7 @@ const PackChart: React.FC = () => {
 
     useLayoutEffect(() => {
         if (HierarchicalData) {
-            buildPackChart('test', HierarchicalData, 600, 1000);
+            buildPackChart('test', HierarchicalData, 500, 500);
         }
     }, [HierarchicalData]);
 
@@ -186,6 +186,7 @@ const buildPackChart = (
             return d.parent === focus ? 'inline' : 'none';
         })
         .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')')
+        .style('font-size', '12px')
         .text(d =>
             d.value ? `${getLabel(d.data)}: ${d.value}` : ''
         ) as Selection<

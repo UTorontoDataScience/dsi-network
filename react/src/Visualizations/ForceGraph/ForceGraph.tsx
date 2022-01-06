@@ -191,7 +191,7 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
 /**
  *  Update nodes and return enter selection for use by caller
  */
-const updateNodeData = <T extends ForceNode>(
+const updateNodeSelection = <T extends ForceNode>(
     nodeSelection: Selection<
         SVGCircleElement,
         ForceNodeSimulationWrapper<T>,
@@ -207,7 +207,8 @@ const updateNodeData = <T extends ForceNode>(
             .append('circle')
             .attr('fill', d => colorScale(d.data.entity.type))
             .attr('stroke', d => (d.children ? null : '#fff'))
-            .attr('r', 5);
+            .attr('r', 5)
+            .call(registerToolTip);
 
         enterSelection
             .transition()
@@ -301,13 +302,25 @@ const mapNodeSelectionData = (
     return tree;
 };
 
+const registerToolTip = <T extends ForceNode>(
+    selection: Selection<
+        SVGCircleElement,
+        ForceNodeSimulationWrapper<T>,
+        SVGGElement,
+        unknown
+    >
+) => {
+    selection
+        .on('mouseover', (d: MouseEvent) => showToolTip(d))
+        .on('mouseout', (d: MouseEvent) => hideToolTip(d));
+};
+
 const showToolTip = (e: MouseEvent) => {
     select('.tooltip')
         .text((e!.target as any).__data__.data.entity.name)
         .style('visibility', 'visible')
         .style('left', `${e.pageX}px`)
         .style('top', `${e.pageY - 25}px`);
-    //.attr('transform', `translate(${e.offsetX},${e.offsetY})`);
 };
 
 const hideToolTip = (e: MouseEvent) => {
@@ -354,7 +367,7 @@ const updateForceGraph = (tree: ForceNode) => {
 
     // bind new data to dom selection so tickHandler can read it
     // todo: set all children of any selected parent as selected (can do this in parent )
-    const enterNodes = updateNodeData(nodeSelection, simulationNodes);
+    const enterNodes = updateNodeSelection(nodeSelection, simulationNodes);
 
     const enterNodeKeys = enterNodes.map(n => makeNodeKeyIgnoreSelected(n));
 
@@ -437,38 +450,23 @@ const buildForceGraph = (
         .append('g')
         .attr('stroke-opacity', 0.6)
         .attr('class', 'line-container')
-        .selectAll('line')
+        .selectAll<SVGLineElement, never>('line')
         .data(forceLinks.links())
         .join('line')
-        .attr('stroke', 'black') as Selection<
-        SVGLineElement,
-        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
-        any,
-        any
-    >;
+        .attr('stroke', 'black');
 
     const nodeSelection = svg
         .append('g')
         .attr('class', 'circle-container')
         .attr('stroke', '#000')
         .attr('stroke-width', 1.5)
-        .selectAll('circle')
-        .data(
-            simulation.nodes(),
-            (d: ForceNodeSimulationWrapper<ForceNode> | unknown, i) =>
-                d ? makeNodeKey(d as ForceNodeSimulationWrapper<ForceNode>) : i
-        )
+        .selectAll<SVGCircleElement, never>('circle')
+        .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
         .join('circle')
         .attr('fill', d => colorScale(d.data.entity.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
-        .on('mouseover', (d: MouseEvent) => showToolTip(d))
-        .on('mouseout', (d: MouseEvent) => hideToolTip(d)) as Selection<
-        SVGCircleElement,
-        ForceNodeSimulationWrapper<ForceNode>,
-        SVGGElement,
-        unknown
-    >;
+        .call(registerToolTip);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 

@@ -79,13 +79,17 @@ const ChartPage: React.FC<{}> = () => {
                     </Box>
                 </AppBar>
             </Grid>
-            <Grid item>
+            <Grid item container justifyContent="center">
                 <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-                    <Tab label="Graph View" />
-                    <Tab label="Pack View" />
+                    <Tab label="Tree View" />
+                    <Tab label="Nested View" />
                 </Tabs>
             </Grid>
-            {activeTab === 1 && <PackChart />}
+            {activeTab === 1 && (
+                <Grid container justifyContent="center">
+                    <PackChart />
+                </Grid>
+            )}
             {activeTab === 0 && (
                 <Grid container direction="row" item>
                     <Grid item xs={9}>

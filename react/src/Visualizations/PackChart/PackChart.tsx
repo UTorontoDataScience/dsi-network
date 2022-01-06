@@ -42,8 +42,6 @@ const PackChart: React.FC = () => {
         }
     }, [model]);
 
-    console.log(HierarchicalData);
-
     return <span id="test" />;
 };
 
@@ -130,9 +128,9 @@ const buildPackChart = (
         .style('display', 'block')
         .attr('height', height)
         .attr('width', width)
-        .on('click', (event, d) => {
+        .on('click', (_, d) => {
             if (focus !== d) {
-                zoom(event, root);
+                zoom(d as HierarchyCircularNode<HierarchicalNode>);
             }
             focus = root;
         });
@@ -161,11 +159,12 @@ const buildPackChart = (
         .attr('pointer-events', d => (!d.children ? 'none' : null))
         .attr('r', d => d.r)
         .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')')
-        .on(
-            'click',
-            (event, d) =>
-                focus !== d && (zoom(event, d), event.stopPropagation())
-        )
+        .on('click', (event, d) => {
+            if (focus !== d) {
+                zoom(d);
+                event.stopPropagation();
+            }
+        })
         .on('mouseover', function () {
             select(this).attr('stroke', '#000');
         })
@@ -178,27 +177,19 @@ const buildPackChart = (
         .style('font', '10px sans-serif')
         .attr('pointer-events', 'none')
         .attr('text-anchor', 'middle')
-        .selectAll('text')
+        .selectAll<SVGTextElement, never>('text')
         .data(root.descendants())
         .join('text')
         .style('fill-opacity', d => (d.parent === focus ? 1 : 0))
-        .style('display', d => {
-            return d.parent === focus ? 'inline' : 'none';
-        })
+        .style('display', d => (d.parent === focus ? 'inline' : 'none'))
         .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')')
         .style('font-size', '12px')
-        .text(d =>
-            d.value ? `${getLabel(d.data)}: ${d.value}` : ''
-        ) as Selection<
-        SVGTextElement,
-        HierarchyCircularNode<HierarchicalNode>,
-        any,
-        any
-    >;
+        .text(d => (d.value ? `${getLabel(d.data)}: ${d.value}` : ''));
 
     const zoomTo = (v: [number, number, number]) => {
         const k = width / v[2];
 
+        //global
         view = v;
 
         label.attr('transform', d => {
@@ -211,22 +202,17 @@ const buildPackChart = (
         node.attr('r', d => d.r * k);
     };
 
-    const zoom = (
-        event: MouseEvent,
-        d: HierarchyCircularNode<HierarchicalNode>
-    ) => {
-        focus = d;
-
+    const zoom = (focus: HierarchyCircularNode<HierarchicalNode>) => {
         const transition = svg
             .transition()
             .duration(500)
-            .tween('zoom', d => {
+            .tween('zoom', () => {
                 const i = interpolateZoom(view, [
                     focus.x,
                     focus.y,
                     focus.r * 2,
                 ]);
-                return t => zoomTo(i(t));
+                return (t: number) => zoomTo(i(t));
             });
 
         label

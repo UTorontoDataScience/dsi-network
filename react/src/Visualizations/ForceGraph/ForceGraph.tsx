@@ -2,6 +2,8 @@ import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
 import { BaseType, select, selectAll, Selection } from 'd3-selection';
 import { scaleOrdinal } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
+import { zoom, zoomTransform, zoomIdentity } from 'd3-zoom';
+import { D3DragEvent, drag } from 'd3-drag';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 
 import {
@@ -28,6 +30,34 @@ import {
 (window as any).d3Select = select;
 (window as any).d3SelectAll = selectAll;
 
+//todo: think about using forceCenter on updateSimulation
+//todo: revisit why we can't use simulation.nodes(newNodes) [b/c we have different sims...]
+//but yet: https://bl.ocks.org/heybignick/3faf257bbbbc7743bb72310d03b86ee8
+//seems that using alpha/alphaTarget *along* with sim.restart() is the way to go?
+
+//todo: consolidate verbose types into type aliases
+
+//we're getting weird behavior with the drag, almost certainly b/c we're fixing some nodes
+//would be best if we just kept the same simulation all the time, altered the alphaTarget, and went on our way?
+//my feeling is that this could be much much simpler
+
+type DSISimulation<T> = Simulation<
+    ForceNodeSimulationWrapper<T>,
+    ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
+>;
+
+type DSIForceLinks<T> = ForceLink<
+    ForceNodeSimulationWrapper<T>,
+    ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
+>;
+
+type DSINodeSelection<T> = Selection<
+    SVGCircleElement,
+    ForceNodeSimulationWrapper<T>,
+    BaseType,
+    unknown
+>;
+
 export interface SelectedModel {
     type: EntityType;
     id: number;
@@ -47,7 +77,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
 }) => {
     const [chartRendered, setChartRendered] = useState(false);
     // we need to manually stop the simulation to prevent memory leaks from the tick event
-    const [simulation, setSimulation] = useState<Simulation<any, any>>();
+    const [simulation, setSimulation] = useState<DSISimulation<ForceNode>>();
 
     const tree = useMemo(() => {
         return buildTree(
@@ -147,10 +177,7 @@ const makeLinkKey = <T extends ForceNode>(
 
 const buildSimulation = <T,>(
     nodes: HierarchyNode<T>[],
-    forceLinks: ForceLink<
-        ForceNodeSimulationWrapper<T>,
-        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
-    >
+    forceLinks: DSIForceLinks<T>
 ) =>
     forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
         .force('d', forceLinks)
@@ -163,10 +190,7 @@ const buildSimulation = <T,>(
 
 const buildUpdateSimulation = <T,>(
     nodes: HierarchyNode<T>[],
-    forceLinks: ForceLink<
-        ForceNodeSimulationWrapper<T>,
-        ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<T>>
-    >
+    forceLinks: DSIForceLinks<T>
 ) => {
     return (
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
@@ -189,16 +213,12 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
         .strength(1);
 
 /**
- *  Update nodes and return enter selection for use by caller
+ *  Update nodes and return enter selection data for use by caller
  */
 const updateNodeSelection = <T extends ForceNode>(
-    nodeSelection: Selection<
-        SVGCircleElement,
-        ForceNodeSimulationWrapper<T>,
-        any,
-        any
-    >,
-    nodes: ForceNodeSimulationWrapper<T>[]
+    nodeSelection: DSINodeSelection<T>,
+    nodes: ForceNodeSimulationWrapper<T>[],
+    simulation: DSISimulation<T>
 ) => {
     const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
 
@@ -208,7 +228,8 @@ const updateNodeSelection = <T extends ForceNode>(
             .attr('fill', d => colorScale(d.data.entity.type))
             .attr('stroke', d => (d.children ? null : '#fff'))
             .attr('r', 5)
-            .call(registerToolTip);
+            .call(registerToolTip)
+            .call(registerDragHandler, simulation);
 
         enterSelection
             .transition()
@@ -242,14 +263,8 @@ const updateLinkData = <T extends ForceNode>(
         .attr('stroke', 'black');
 };
 
-const registerTickHandler = <
-    T extends ForceNode,
-    L extends ForceNodeSimulationWrapper<T>
->(
-    simulation: Simulation<
-        ForceNodeSimulationWrapper<T>,
-        ForceLinkSimulationWrapper<L>
-    >,
+const registerTickHandler = <T extends ForceNode>(
+    simulation: DSISimulation<T>,
     linkSelection: Selection<
         SVGLineElement,
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>,
@@ -303,12 +318,7 @@ const mapNodeSelectionData = (
 };
 
 const registerToolTip = <T extends ForceNode>(
-    selection: Selection<
-        SVGCircleElement,
-        ForceNodeSimulationWrapper<T>,
-        SVGGElement,
-        unknown
-    >
+    selection: DSINodeSelection<T>
 ) => {
     selection
         .on('mouseover', (d: MouseEvent) => showToolTip(d))
@@ -319,12 +329,50 @@ const showToolTip = (e: MouseEvent) => {
     select('.tooltip')
         .text((e!.target as any).__data__.data.entity.name)
         .style('visibility', 'visible')
-        .style('left', `${e.pageX}px`)
+        .style('left', `${e.pageX + 15}px`)
         .style('top', `${e.pageY - 25}px`);
 };
 
 const hideToolTip = (e: MouseEvent) => {
     select('.tooltip').style('visibility', 'hidden');
+};
+
+const registerDragHandler = <T extends ForceNode>(
+    selection: DSINodeSelection<T>,
+    simulation: DSISimulation<T>
+) => {
+    const dragstarted = (
+        e: D3DragEvent<SVGCircleElement, T, unknown>,
+        d: ForceNodeSimulationWrapper<T>
+    ) => {
+        simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    };
+
+    const dragged = (
+        e: D3DragEvent<SVGCircleElement, T, unknown>,
+        d: ForceNodeSimulationWrapper<T>
+    ) => {
+        d.fx = e.x;
+        d.fy = e.y;
+    };
+
+    const dragended = (
+        e: D3DragEvent<SVGCircleElement, T, unknown>,
+        d: ForceNodeSimulationWrapper<T>
+    ) => {
+        if (!e.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    };
+
+    const handler = drag<SVGCircleElement, ForceNodeSimulationWrapper<T>>()
+        .on('start', dragstarted)
+        .on('drag', dragged)
+        .on('end', dragended);
+
+    return handler(selection);
 };
 
 const updateForceGraph = (tree: ForceNode) => {
@@ -358,9 +406,26 @@ const updateForceGraph = (tree: ForceNode) => {
 
     const simulationNodes = newRoot.descendants();
 
+    // build new force links (can't reuse old)
+    // map to ensure that simulationNodes and their latest locations are looked up at initialization time
+    // (init time is when data is updated/mutated)
+    const forceLinks = buildForceLinks(newRoot.links()).links(
+        newRoot.links().map(l => ({
+            source: makeNodeKey(l.source),
+            target: makeNodeKey(l.target),
+        }))
+    );
+
+    //initialize simulation (mutate forceLinks)
+    const simulation = buildUpdateSimulation(simulationNodes, forceLinks);
+
     // bind new data to dom selection so tickHandler can read it
     // todo: set all children of any selected parent as selected (can do this in parent )
-    const enterNodes = updateNodeSelection(nodeSelection, simulationNodes);
+    const enterNodes = updateNodeSelection(
+        nodeSelection,
+        simulationNodes,
+        simulation
+    );
 
     const enterNodeKeys = enterNodes.map(n => makeNodeKeyIgnoreSelected(n));
 
@@ -393,19 +458,6 @@ const updateForceGraph = (tree: ForceNode) => {
             nn.fy = nodeMap[key].y;
         }
     });
-
-    // build new force links (can't reuse old)
-    // map to ensure that simulationNodes and their latest locations are looked up at initialization time
-    // (init time is when data is updated/mutated)
-    const forceLinks = buildForceLinks(newRoot.links()).links(
-        newRoot.links().map(l => ({
-            source: makeNodeKey(l.source),
-            target: makeNodeKey(l.target),
-        }))
-    );
-
-    //initialize simulation (mutate forceLinks)
-    const simulation = buildUpdateSimulation(simulationNodes, forceLinks);
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
     updateLinkData(linkSelection, forceLinks.links());
@@ -462,7 +514,8 @@ const buildForceGraph = (
         .attr('fill', d => colorScale(d.data.entity.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
-        .call(registerToolTip);
+        .call(registerToolTip)
+        .call(registerDragHandler, simulation);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
@@ -503,8 +556,9 @@ const buildToolTip = () => {
         .style('position', 'absolute')
         .style('background-color', 'black')
         .style('padding', '5px')
-        .style('border-radius', '2px')
-        .style('font-size', '10px')
+        .style('border-radius', '4px')
+        .style('font-size', '12px')
+        .style('max-width', '120px')
         .style('visibility', 'hidden')
         .style('color', 'white');
 };

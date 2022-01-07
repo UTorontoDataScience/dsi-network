@@ -16,6 +16,8 @@ import {
     SimulationNodeDatum,
     ForceLink,
     Simulation,
+    forceCenter,
+    forceCollide,
 } from 'd3-force';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
@@ -182,24 +184,25 @@ const buildSimulation = <T,>(
     forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
         .force('d', forceLinks)
         //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-        .force('charge', forceManyBody().strength(-50))
-        .force('x', forceX())
-        .force('y', forceY())
+        .force('charge', forceManyBody().strength(-20))
+        .force('center', forceCenter())
         //higher is slower, default is .4
         .velocityDecay(0.4);
 
+//todo: we ought to pass in parents here? -- then if parent is found, return 0 for all forces
 const buildUpdateSimulation = <T,>(
     nodes: HierarchyNode<T>[],
     forceLinks: DSIForceLinks<T>
 ) => {
     return (
+        // todo: set all force strengths to 0 in strength accessor function if we don't want them to move (better than fixing them)
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
-            .force('d', forceLinks.strength(1))
+            .force('d', forceLinks)
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-            .force('charge', forceManyBody().strength(-50))
-            //note that we ought to pass in array of nodes and function
-            //higher is faster, default is .4
-            .velocityDecay(0.7)
+            .force('charge', forceManyBody().strength(-25))
+            .force('collision', forceCollide().radius(7.5))
+            .force('center', forceCenter())
+            .velocityDecay(0.8)
     );
 };
 
@@ -217,8 +220,7 @@ const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>
  */
 const updateNodeSelection = <T extends ForceNode>(
     nodeSelection: DSINodeSelection<T>,
-    nodes: ForceNodeSimulationWrapper<T>[],
-    simulation: DSISimulation<T>
+    nodes: ForceNodeSimulationWrapper<T>[]
 ) => {
     const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
 
@@ -228,8 +230,7 @@ const updateNodeSelection = <T extends ForceNode>(
             .attr('fill', d => colorScale(d.data.entity.type))
             .attr('stroke', d => (d.children ? null : '#fff'))
             .attr('r', 5)
-            .call(registerToolTip)
-            .call(registerDragHandler, simulation);
+            .call(registerToolTip);
 
         enterSelection
             .transition()
@@ -393,17 +394,6 @@ const updateForceGraph = (tree: ForceNode) => {
         ForceLinkSimulationWrapper<ForceNodeSimulationWrapper<ForceNode>>
     >('line');
 
-    //fix positions of all but new nodes
-    const nodeMap = nodeSelection
-        .data()
-        .reduce<Record<string, ForceNodeSimulationWrapper<ForceNode>>>(
-            (acc, curr) => ({
-                ...acc,
-                [makeNodeKeyIgnoreSelected(curr)]: curr,
-            }),
-            {}
-        );
-
     const simulationNodes = newRoot.descendants();
 
     // build new force links (can't reuse old)
@@ -416,48 +406,18 @@ const updateForceGraph = (tree: ForceNode) => {
         }))
     );
 
+    // bind new data to dom selection so tickHandler can read it
+    const enterNodesData = updateNodeSelection(nodeSelection, simulationNodes);
+
     //initialize simulation (mutate forceLinks)
     const simulation = buildUpdateSimulation(simulationNodes, forceLinks);
 
-    // bind new data to dom selection so tickHandler can read it
-    // todo: set all children of any selected parent as selected (can do this in parent )
-    const enterNodes = updateNodeSelection(
-        nodeSelection,
-        simulationNodes,
+    registerDragHandler(
+        selectAll<SVGCircleElement, ForceNodeSimulationWrapper<ForceNode>>(
+            'circle'
+        ),
         simulation
     );
-
-    const enterNodeKeys = enterNodes.map(n => makeNodeKeyIgnoreSelected(n));
-
-    const enterNodeParentKeys = enterNodes
-        .filter(en => en.parent)
-        .map(en => makeNodeKeyIgnoreSelected(en.parent!));
-
-    // need a recursive solution here...
-    const enterNodeChildKeys = enterNodes
-        .filter(en => !!en.children)
-        .flatMap(en => en.children!.map(makeNodeKeyIgnoreSelected));
-
-    // for enter parent nodes, add its leaves to the simulation but not the node itself
-    // for enter leaf nodes, add siblings to the the simulation
-    // add enter leaf nodes to the simulation
-    simulationNodes.forEach(nn => {
-        const key = makeNodeKeyIgnoreSelected(nn);
-        if (
-            nodeMap[key]?.children ||
-            (!enterNodeChildKeys.includes(key) &&
-                !enterNodeKeys.includes(key) &&
-                !(
-                    nodeMap[key]?.parent &&
-                    enterNodeParentKeys.includes(
-                        makeNodeKeyIgnoreSelected(nodeMap[key].parent!)
-                    )
-                ))
-        ) {
-            nn.fx = nodeMap[key].x;
-            nn.fy = nodeMap[key].y;
-        }
-    });
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
     updateLinkData(linkSelection, forceLinks.links());

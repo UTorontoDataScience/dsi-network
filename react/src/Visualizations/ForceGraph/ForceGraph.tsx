@@ -199,10 +199,11 @@ const buildUpdateSimulation = <T,>(
         forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
             .force('d', forceLinks)
             //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-            .force('charge', forceManyBody().strength(-25))
+            .force('charge', forceManyBody().strength(-20))
             .force('collision', forceCollide().radius(7.5))
             .force('center', forceCenter())
-            .velocityDecay(0.8)
+            .velocityDecay(0.9)
+            .alpha(0.4)
     );
 };
 

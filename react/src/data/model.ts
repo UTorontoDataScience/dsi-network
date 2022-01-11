@@ -5,6 +5,7 @@ import {
     Person,
     BaseEntity,
 } from '../types';
+import { uniqueBy, groupBy } from './../util';
 
 // once we're confident, we'll want to save this as json rather than recreating it all the time for the sake of reproducibility
 
@@ -17,16 +18,22 @@ const fetchAcademicProgramsData = async () => {
 const strToBool = (type?: string) =>
     type && type.toLowerCase() === 'yes' ? true : false;
 
-const transformPrograms = (data: AcademicProgramsDataRaw[]) =>
-    data.map<AcademicProgram>((u, id) => ({
+const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
+    const programMap = groupBy(data, 'program');
+
+    return data.map<AcademicProgram>((u, id) => ({
         ...u,
         id: id + 1,
         is_education: strToBool(u.type_education),
         is_research: strToBool(u.type_research),
         is_resource: strToBool(u.type_resource),
-        name: u.program,
+        name:
+            programMap[u.program].length > 1
+                ? `${u.program} (${u.campus})`
+                : u.program,
         type: 'program' as 'program',
     }));
+};
 
 const fetchPeopleData = async () => {
     return (await (await fetch('people.json')).json()) as Promise<
@@ -95,11 +102,6 @@ export interface Link {
     relationship: Relationship;
 }
 
-const uniqueBy =
-    <T extends {}, K extends keyof T>(field: K) =>
-    (m: T, i: number, arr: T[]) =>
-        arr.findIndex((model: T) => model[field] === m[field]) === i;
-
 const createDivisionsLinksAndUnits = (
     programs: AcademicProgram[],
     people: Person[]
@@ -122,6 +124,8 @@ const createDivisionsLinksAndUnits = (
         }))
         .filter(uniqueBy('name'));
 
+    const unitMap = groupBy(programs.filter(uniqueBy('unit')), 'unit');
+
     const unit: Unit[] = programs
         .filter(p => !!p.unit)
         .map(p => ({
@@ -132,6 +136,7 @@ const createDivisionsLinksAndUnits = (
         }))
         .filter(uniqueBy('name'));
 
+    //todo: filter out people who don't have professor/pi roles from initial list
     const getPersonRelationship = (_role?: string): Relationship => {
         const role = (_role || '').toLowerCase();
         if (role.includes('professor')) {
@@ -168,10 +173,6 @@ const createDivisionsLinksAndUnits = (
                         .includes(transformDepartmentName(unit.name))
             )
             .map(person => {
-                if (person.name.startsWith('Gary')) {
-                    console.log(person);
-                }
-
                 const link = {
                     uId: unit.id,
                     uType: 'unit' as EntityType,
@@ -224,7 +225,7 @@ const createDivisionsLinksAndUnits = (
         populateUnit(u, people);
     });
 
-    // units (departments) are parents of programs
+    // units (departments) are parents of programs -- try linking there first
     programs.forEach(p => {
         let divisionId: number | undefined;
         const unitId = p.unit ? unit.find(u => u.name === p.unit)?.id : null;

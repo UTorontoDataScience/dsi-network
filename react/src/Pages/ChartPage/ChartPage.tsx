@@ -20,7 +20,8 @@ import { ForceGraph, PackChart } from './../../Visualizations';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import debounce from 'lodash.debounce';
 import { DetailCard } from '../../Components';
-import { EntityWithLinks, isPerson, isProgram } from '../../types';
+import { EntityWithLinks } from '../../types';
+import { uniqueBy } from '../../util';
 
 const ChartPage: React.FC<{}> = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -46,14 +47,8 @@ const ChartPage: React.FC<{}> = () => {
                     { ...l.child, type: l.childType },
                     { ...l.parent, type: l.parentType },
                 ])
-                .filter(
-                    (op, i, arr) =>
-                        arr.findIndex(
-                            inner =>
-                                //inner.id === op.id && inner.type === op.type --> will let in dupes, need to make sure programs have campus name appended
-                                inner.name === op.name
-                        ) === i && op.name
-                );
+                .filter(l => !!l.name)
+                .filter(uniqueBy('name'));
         } else {
             return [];
         }
@@ -101,13 +96,7 @@ const ChartPage: React.FC<{}> = () => {
                         <Grid item>
                             <Autocomplete
                                 clearOnEscape
-                                getOptionLabel={option =>
-                                    `${option.name}${
-                                        (option as any).campus
-                                            ? ` ${(option as any).campus}`
-                                            : ''
-                                    }`
-                                }
+                                getOptionLabel={m => m.name}
                                 isOptionEqualToValue={(option, value) =>
                                     option.name === value.name
                                 }
@@ -117,7 +106,6 @@ const ChartPage: React.FC<{}> = () => {
                                         value &&
                                         links
                                     ) {
-                                        // pass in all links that have this value as a child so we can report the relationship
                                         setDetailSelection({
                                             entity: value as ModelEntity,
                                             links: links.filter(

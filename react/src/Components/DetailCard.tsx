@@ -14,7 +14,7 @@ const resolveDetailComponet = (item: EntityWithLinks) => {
         return <ProgramDetailCard program={item.entity} links={item.links} />;
     } else if (isPerson(item.entity)) {
         return <PersonDetailCard person={item.entity} links={item.links} />;
-    } else return null;
+    } else return <BaseDetailCard entity={item.entity} />;
 };
 
 interface DetailCardProps {
@@ -53,6 +53,16 @@ const ProgramDetailCard: React.FC<{
             {program.name}
         </Typography>
         {!!program.unit && <Typography>{program.unit}</Typography>}
+    </CardContent>
+);
+
+const BaseDetailCard: React.FC<{
+    entity: ModelEntity;
+}> = ({ entity }) => (
+    <CardContent>
+        <Typography color="primary" variant="h4">
+            {entity.name}
+        </Typography>
     </CardContent>
 );
 

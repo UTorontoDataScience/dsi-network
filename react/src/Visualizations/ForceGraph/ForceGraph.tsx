@@ -10,8 +10,6 @@ import {
     forceSimulation,
     forceLink,
     forceManyBody,
-    forceX,
-    forceY,
     SimulationLinkDatum,
     SimulationNodeDatum,
     ForceLink,
@@ -189,22 +187,17 @@ const buildSimulation = <T,>(
         //higher is slower, default is .4
         .velocityDecay(0.4);
 
-//todo: we ought to pass in parents here? -- then if parent is found, return 0 for all forces
 const buildUpdateSimulation = <T,>(
     nodes: HierarchyNode<T>[],
     forceLinks: DSIForceLinks<T>
 ) => {
-    return (
-        // todo: set all force strengths to 0 in strength accessor function if we don't want them to move (better than fixing them)
-        forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
-            .force('d', forceLinks)
-            //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-            .force('charge', forceManyBody().strength(-20))
-            .force('collision', forceCollide().radius(7.5))
-            .force('center', forceCenter())
-            .velocityDecay(0.9)
-            .alpha(0.4)
-    );
+    return forceSimulation<ForceNodeSimulationWrapper<T>>(nodes)
+        .force('d', forceLinks)
+        .force('charge', forceManyBody().strength(-21))
+        .force('collision', forceCollide().radius(7.5))
+        .force('center', forceCenter().strength(0.05))
+        .velocityDecay(0.9)
+        .alpha(0.1);
 };
 
 const buildForceLinks = <T extends ForceNode>(links: HierarchyLink<T>[]) =>

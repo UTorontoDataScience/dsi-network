@@ -20,21 +20,12 @@ import { ForceGraph, PackChart } from './../../Visualizations';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import debounce from 'lodash.debounce';
 import { DetailCard } from '../../Components';
-import { isPerson, isProgram } from '../../types';
-
-const resolveDetailCardProps = (model: ModelEntity) => {
-    const props = { title: model.name };
-    if (isPerson(model)) {
-        return { ...props, email: model.email };
-    } else if (isProgram(model)) {
-        return { ...props, unit: model.unit };
-    } else return props;
-};
+import { EntityWithLinks, isPerson, isProgram } from '../../types';
 
 const ChartPage: React.FC<{}> = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [detailSelection, setDetailSelection] =
-        useState<ModelEntity | null>();
+        useState<EntityWithLinks | null>();
     const [links, setLinks] = useState<HydratedLink[]>();
     const [model, setModel] = useState<Model>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
@@ -121,8 +112,21 @@ const ChartPage: React.FC<{}> = () => {
                                     option.name === value.name
                                 }
                                 onChange={(event, value, reason) => {
-                                    if (reason === 'selectOption') {
-                                        setDetailSelection(value);
+                                    if (
+                                        reason === 'selectOption' &&
+                                        value &&
+                                        links
+                                    ) {
+                                        // pass in all links that have this value as a child so we can report the relationship
+                                        setDetailSelection({
+                                            entity: value as ModelEntity,
+                                            links: links.filter(
+                                                l =>
+                                                    l.childType ===
+                                                        value.type &&
+                                                    l.child.id === value.id
+                                            ),
+                                        });
                                     }
                                     if (reason === 'clear') {
                                         setDetailSelection(null);
@@ -156,9 +160,7 @@ const ChartPage: React.FC<{}> = () => {
                         </Grid>
                         <Grid item>
                             {!!detailSelection && (
-                                <DetailCard
-                                    {...resolveDetailCardProps(detailSelection)}
-                                />
+                                <DetailCard item={detailSelection} />
                             )}
                         </Grid>
                     </Grid>

@@ -1,6 +1,6 @@
 //todo: all need to extend a BaseEntity type that has id, name, type properties
 
-import { EntityType, ModelEntity } from './data/model';
+import { EntityType, HydratedLink, ModelEntity } from './data/model';
 
 export interface BaseEntity {
     id: number;
@@ -8,6 +8,10 @@ export interface BaseEntity {
     type: EntityType;
 }
 
+export interface EntityWithLinks {
+    entity: ModelEntity;
+    links: HydratedLink[];
+}
 export interface AcademicProgramsDataRaw {
     campus: string;
     division: string;

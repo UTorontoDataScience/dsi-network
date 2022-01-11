@@ -136,15 +136,15 @@ const createDivisionsLinksAndUnits = (
         const role = (_role || '').toLowerCase();
         if (role.includes('professor')) {
             return 'professor';
-        } else if (role.includes('phd') || role.includes('master')) {
+        } /* else if (role.includes('phd') || role.includes('master')) {
             return 'graduate_student';
-        } else if (role.includes('investigator')) {
+        } */ else if (role.includes('investigator')) {
             return 'principal_investigator';
-        } else if (role.includes('undergraduate')) {
+        } /* else if (role.includes('undergraduate')) {
             return 'undergraduate';
         } else if (role.includes('research')) {
             return 'researcher';
-        }
+        } */
 
         return 'staff';
     };
@@ -168,6 +168,10 @@ const createDivisionsLinksAndUnits = (
                         .includes(transformDepartmentName(unit.name))
             )
             .map(person => {
+                if (person.name.startsWith('Gary')) {
+                    console.log(person);
+                }
+
                 const link = {
                     uId: unit.id,
                     uType: 'unit' as EntityType,

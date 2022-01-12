@@ -1,6 +1,7 @@
 {
-  "name": "network-graph",
+  "name": "dsi-network",
   "version": "0.1.0",
+  "homepage": "http://UTorontoDataScience.github.io/dsi-network",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.7.1",
@@ -26,11 +27,13 @@
   },
   "scripts": {
     "build": "react-scripts build",
+    "deploy": "gh-pages -d build",
     "eject": "react-scripts eject",
     "lint-check": "yarn run eslint src",
     "lint-fix": "yarn run eslint --fix src",
     "format-check": "yarn run prettier -c src",
     "format-fix": "yarn run prettier -w src",
+    "predeploy": "yarn run build",
     "type-check": "yarn run tsc --noEmit",
     "start": "react-scripts start",
     "test": "react-scripts test"
@@ -69,6 +72,7 @@
     "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-react": "^7.28.0",
     "eslint-plugin-react-hooks": "^4.3.0",
+    "gh-pages": "^3.2.3",
     "prettier": "^2.5.1"
   }
 }

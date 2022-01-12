@@ -7,8 +7,6 @@ import {
 } from '../types';
 import { uniqueBy, groupBy } from './../util';
 
-// once we're confident, we'll want to save this as json rather than recreating it all the time for the sake of reproducibility
-
 const fetchAcademicProgramsData = async () => {
     return (await (await fetch('academic-programs.json')).json()) as Promise<
         AcademicProgramsDataRaw[]
@@ -124,8 +122,6 @@ const createDivisionsLinksAndUnits = (
         }))
         .filter(uniqueBy('name'));
 
-    const unitMap = groupBy(programs.filter(uniqueBy('unit')), 'unit');
-
     const unit: Unit[] = programs
         .filter(p => !!p.unit)
         .map(p => ({
@@ -136,22 +132,12 @@ const createDivisionsLinksAndUnits = (
         }))
         .filter(uniqueBy('name'));
 
-    //todo: filter out people who don't have professor/pi roles from initial list
+    // people should be limited to these roles already
     const getPersonRelationship = (_role?: string): Relationship => {
         const role = (_role || '').toLowerCase();
         if (role.includes('professor')) {
             return 'professor';
-        } /* else if (role.includes('phd') || role.includes('master')) {
-            return 'graduate_student';
-        } */ else if (role.includes('investigator')) {
-            return 'principal_investigator';
-        } /* else if (role.includes('undergraduate')) {
-            return 'undergraduate';
-        } else if (role.includes('research')) {
-            return 'researcher';
-        } */
-
-        return 'staff';
+        } else return 'principal_investigator';
     };
 
     const transformDepartmentName = (name: string) =>
@@ -164,30 +150,22 @@ const createDivisionsLinksAndUnits = (
     const populateUnit = (unit: Unit, people: Person[]) => {
         // just doing department to department for now
 
-        const _people = people
-            .filter(
-                p =>
-                    !!unit.name &&
-                    [p.primary_department, p.secondary_department]
-                        .map(transformDepartmentName)
-                        .includes(transformDepartmentName(unit.name))
-            )
-            .map(person => {
-                const link = {
-                    uId: unit.id,
-                    uType: 'unit' as EntityType,
-                    vId: person.id,
-                    vType: 'person' as EntityType,
-                    relationship: getPersonRelationship(
-                        transformDepartmentName(person.primary_department) ===
-                            transformDepartmentName(unit.name)
-                            ? person.primary_role
-                            : person.secondary_role
-                    ),
-                };
-                links.push(link);
-                return person;
-            });
+        const _people = people.map(person => {
+            const link = {
+                uId: unit.id,
+                uType: 'unit' as EntityType,
+                vId: person.id,
+                vType: 'person' as EntityType,
+                relationship: getPersonRelationship(
+                    transformDepartmentName(person.primary_department) ===
+                        transformDepartmentName(unit.name)
+                        ? person.primary_role
+                        : person.secondary_role
+                ),
+            };
+            links.push(link);
+            return person;
+        });
         return _people;
     };
 
@@ -216,16 +194,56 @@ const createDivisionsLinksAndUnits = (
         }
     });
 
-    // divisions are parents of units (assuming for now they're all departments)
-    // people data isn't great on programs, so we'll attach to units instead
+    /* filter out all but PIs and professors and map to departments */
+    const departmentMap = people.reduce<{ [key: string]: [Person] }>(
+        (acc, curr) => {
+            const primaryDepartment = transformDepartmentName(
+                curr.primary_department
+            );
+            const secondaryDepartment = transformDepartmentName(
+                curr.secondary_department
+            );
+            if (
+                curr.primary_role &&
+                primaryDepartment &&
+                (curr.primary_role.toLowerCase().includes('professor') ||
+                    curr.primary_role.toLowerCase().includes('investigator'))
+            ) {
+                acc[primaryDepartment]
+                    ? acc[primaryDepartment].push(curr)
+                    : (acc[primaryDepartment] = [curr]);
+            }
+
+            if (
+                curr.secondary_role &&
+                secondaryDepartment &&
+                (curr.secondary_role.toLowerCase().includes('investigator') ||
+                    curr.secondary_role.toLowerCase().includes('professor'))
+            ) {
+                acc[secondaryDepartment]
+                    ? acc[secondaryDepartment].push(curr)
+                    : (acc[secondaryDepartment] = [curr]);
+            }
+
+            return acc;
+        },
+        {}
+    );
+
+    // divisions are parents of units (assuming for now units are all departments)
+    // people data doesn't typically map to programs (e.g., a major), so we'll attach to units instead
     unit.forEach(u => {
+        // link department to division
         if (u.divisionId) {
             createLink(u.divisionId, u.id, 'division', 'unit', 'department');
         }
-        populateUnit(u, people);
+        //add people to department
+        if (departmentMap[transformDepartmentName(u.name)]) {
+            populateUnit(u, departmentMap[transformDepartmentName(u.name)]);
+        }
     });
 
-    // units (departments) are parents of programs -- try linking there first
+    // units (departments) are parents of programs -- try linking there first, before division
     programs.forEach(p => {
         let divisionId: number | undefined;
         const unitId = p.unit ? unit.find(u => u.name === p.unit)?.id : null;
@@ -276,9 +294,8 @@ export const getKeys = <T>(obj: T) => Object.keys(obj) as (keyof T)[];
 export const hydrateLinks = (model: Model) => {
     const { links, ...modelsToHydrate } = model;
 
-    // this is the bottleneck -- can it be done server-side?
+    // this is slow, needss to be rethought/optimized
 
-    //this should be done once and memoized at top level
     const modelMap = getKeys(modelsToHydrate).reduce<ModelMap>(
         (acc, k) => ({
             ...acc,

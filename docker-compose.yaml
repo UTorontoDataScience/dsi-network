@@ -10,4 +10,4 @@ services:
       - "4004:4004"
     entrypoint: "yarn start"
     environment:
-      - PORT=4004
+      - PORT=${REACT_PORT}

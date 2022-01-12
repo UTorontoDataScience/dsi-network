@@ -472,7 +472,7 @@ const drawLegend = (h: number, w: number) => {
     svg.selectAll('g.legend')
         .data(colorScale.domain())
         .join('g')
-        .attr('transform', (_, i) => `translate(${w / 2 - 75}, ${i * 20})`)
+        .attr('transform', (_, i) => `translate(${-(w / 2) + 75}, ${i * 20})`)
         .attr('class', 'legend')
         .append('circle')
         .attr('r', 5)

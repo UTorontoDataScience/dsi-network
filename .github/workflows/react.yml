@@ -2,7 +2,7 @@ name: React
 
 on:
   push:
-    branches: ["cklamann/add-workflow"]
+    branches: ["master"]
   pull_request:
     branches: [master]
 

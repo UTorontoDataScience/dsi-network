@@ -9,19 +9,19 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import debounce from "lodash.debounce";
+import { SelectedModel } from "../../Visualizations/ForceGraph/ForceGraph";
+import { DetailCard } from "../../Components";
+import { EntityWithLinks } from "../../types";
+import { uniqueBy } from "../../util";
 import getModel, {
   Campus,
   HydratedLink,
   hydrateLinks,
   Model,
   ModelEntity,
-} from "./../../data/model";
-import { ForceGraph, PackChart } from "./../../Visualizations";
-import { SelectedModel } from "../../Visualizations/ForceGraph/ForceGraph";
-import debounce from "lodash.debounce";
-import { DetailCard } from "../../Components";
-import { EntityWithLinks } from "../../types";
-import { uniqueBy } from "../../util";
+} from "../../data/model";
+import { ForceGraph, PackChart } from "../../Visualizations";
 
 const ChartPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);

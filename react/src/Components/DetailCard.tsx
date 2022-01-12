@@ -1,5 +1,5 @@
-import { capitalize, Card, CardContent, Typography } from "@mui/material";
 import React from "react";
+import { capitalize, Card, CardContent, Typography } from "@mui/material";
 import { HydratedLink, ModelEntity } from "../data/model";
 import {
   AcademicProgram,

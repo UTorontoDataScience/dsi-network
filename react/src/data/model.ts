@@ -5,7 +5,7 @@ import {
   Person,
   BaseEntity,
 } from "../types";
-import { uniqueBy, groupBy } from "./../util";
+import { uniqueBy, groupBy } from "../util";
 
 const fetchAcademicProgramsData = async () => {
   return (await (await fetch("academic-programs.json")).json()) as Promise<

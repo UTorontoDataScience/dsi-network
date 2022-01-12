@@ -1,10 +1,10 @@
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { hierarchy, HierarchyLink, HierarchyNode } from "d3-hierarchy";
 import { Selection, BaseType, select, selectAll } from "d3-selection";
 import { scaleOrdinal } from "d3-scale";
 import { schemeDark2 } from "d3-scale-chromatic";
 import { D3DragEvent, drag } from "d3-drag";
 import "d3-transition"; // must be imported so selection.transition will resolve
-
 import {
   forceSimulation,
   forceLink,
@@ -16,7 +16,6 @@ import {
   forceCenter,
   forceCollide,
 } from "d3-force";
-import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   EntityType,
   HierarchicalNode,

@@ -8,8 +8,6 @@ module.exports = {
         "eslint:recommended",
         "plugin:react/recommended",
         "plugin:@typescript-eslint/recommended",
-        "plugin:import/warnings",
-        "plugin:import/errors",
     ],
     parser: "@typescript-eslint/parser",
     parserOptions: {
@@ -19,14 +17,25 @@ module.exports = {
         ecmaVersion: 13,
         sourceType: "module",
     },
-    plugins: ["react", "react-hooks", "@typescript-eslint"],
+    plugins: ["@typescript-eslint", "import", "react", "react-hooks"],
     rules: {
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
         "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-explicit-any": "off",
-        // redundant and inaccurate
-        "import/no-unresolved": "off",
-        "import/named": "off"
+        "import/order": [
+            "error",
+            {
+                "pathGroups": [
+                    {
+                        "pattern": "react",
+                        "group": "builtin",
+                        "position": "before"
+                    }
+                ],
+                "pathGroupsExcludedImportTypes": ["react"]
+            }
+        ],
+        "import/no-useless-path-segments": "error"
     },
 };

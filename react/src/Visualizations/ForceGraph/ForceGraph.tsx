@@ -205,7 +205,6 @@ const updateNodeSelection = <T extends ForceNode>(
                 .append('circle')
                 .attr('fill', d => colorScale(d.data.entity.type))
                 .attr('stroke', d => (d.children ? null : '#fff'))
-                .attr('r', 5)
                 .call(registerToolTip);
 
             enterSelection
@@ -219,7 +218,9 @@ const updateNodeSelection = <T extends ForceNode>(
             return enterSelection;
         },
         update => update,
-        exit => exit.remove()
+        exit => {
+            exit.transition().attr('r', 0).duration(1500).remove();
+        }
     );
 
     return bound.enter().data();

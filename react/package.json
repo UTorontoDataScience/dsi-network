@@ -6,7 +6,6 @@
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "^11.6.0",
     "@mui/material": "^5.2.7",
-    "@types/d3-drag": "^3.0.1",
     "d3-drag": "^3.0.0",
     "d3-force": "^3.0.0",
     "d3-hierarchy": "^3.1.1",
@@ -26,16 +25,14 @@
     "web-vitals": "^2.1.2"
   },
   "scripts": {
-    "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "eject": "react-scripts eject",
+    "lint-check": "yarn run eslint src",
+    "lint-fix": "yarn run eslint --fix src",
+    "format-check": "yarn run prettier -c src",
+    "format-fix": "yarn run prettier -w src",
+    "start": "react-scripts start",
+    "test": "react-scripts test"
   },
   "browserslist": {
     "production": [
@@ -50,9 +47,7 @@
     ]
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^5.16.1",
-    "@testing-library/react": "^12.1.2",
-    "@testing-library/user-event": "^13.5.0",
+    "@types/d3-drag": "^3.0.1",
     "@types/d3-force": "^3.0.3",
     "@types/d3-hierarchy": "^3.0.2",
     "@types/d3-interpolate": "^3.0.1",
@@ -66,6 +61,13 @@
     "@types/lodash.debounce": "^4.0.6",
     "@types/node": "^16.11.13",
     "@types/react": "^17.0.37",
-    "@types/react-dom": "^17.0.11"
+    "@types/react-dom": "^17.0.11",
+    "@typescript-eslint/eslint-plugin": "^5.9.1",
+    "@typescript-eslint/parser": "^5.9.1",
+    "eslint": "^8.6.0",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-react": "^7.28.0",
+    "eslint-plugin-react-hooks": "^4.3.0",
+    "prettier": "^2.5.1"
   }
 }

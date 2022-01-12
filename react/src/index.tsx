@@ -1,15 +1,15 @@
-import "typeface-roboto";
-import React from "react";
-import { Container } from "@mui/material";
-import ReactDOM from "react-dom";
-import { ChartPage } from "./Pages";
+import 'typeface-roboto';
+import React from 'react';
+import { Container } from '@mui/material';
+import ReactDOM from 'react-dom';
+import { ChartPage } from './Pages';
 
 const App: React.FC = () => {
-  return (
-    <Container>
-      <ChartPage />
-    </Container>
-  );
+    return (
+        <Container>
+            <ChartPage />
+        </Container>
+    );
 };
 
-ReactDOM.render(<App />, document.getElementById("root"));
+ReactDOM.render(<App />, document.getElementById('root'));

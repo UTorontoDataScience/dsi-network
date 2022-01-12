@@ -31,6 +31,7 @@
     "lint-fix": "yarn run eslint --fix src",
     "format-check": "yarn run prettier -c src",
     "format-fix": "yarn run prettier -w src",
+    "type-check": "yarn run tsc --noEmit",
     "start": "react-scripts start",
     "test": "react-scripts test"
   },

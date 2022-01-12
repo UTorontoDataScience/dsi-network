@@ -13,8 +13,8 @@ const fetchAcademicProgramsData = async () => {
   >;
 };
 
-const strToBool = (type?: string) =>
-  type && type.toLowerCase() === "yes" ? true : false;
+const yesToBool = (str?: string) =>
+  str && str.toLowerCase() === "yes" ? true : false;
 
 const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
   const programMap = groupBy(data, "program");
@@ -22,9 +22,9 @@ const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
   return data.map<AcademicProgram>((u, id) => ({
     ...u,
     id: id + 1,
-    is_education: strToBool(u.type_education),
-    is_research: strToBool(u.type_research),
-    is_resource: strToBool(u.type_resource),
+    is_education: yesToBool(u.type_education),
+    is_research: yesToBool(u.type_research),
+    is_resource: yesToBool(u.type_resource),
     name:
       programMap[u.program].length > 1
         ? `${u.program} (${u.campus})`

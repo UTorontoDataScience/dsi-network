@@ -1,0 +1,31 @@
+name: React
+
+on:
+  push:
+    branches: ["cklamann/add-workflow"]
+  pull_request:
+    branches: [master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./react
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 16.x
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+          cache: "yarn"
+          cache-dependency-path: "./react/yarn.lock"
+      - name: Install dependencies
+        run: yarn install
+      - name: TSC
+        run: yarn run tsc
+      - name: Lint
+        run: yarn run lint-check
+      - name: Check Format
+        run: yarn run format-check

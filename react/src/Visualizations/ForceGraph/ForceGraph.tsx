@@ -167,7 +167,6 @@ const buildSimulation = <T,>(
         .force('charge', forceManyBody().strength(-20))
         .force('collision', forceCollide().radius(5))
         .force('center', forceCenter())
-        .alphaTarget(0.3)
         //higher is slower, default is .4
         .velocityDecay(0.4);
 
@@ -463,7 +462,7 @@ const buildForceGraph = (
 
     drawLegend(height, width);
 
-    buildToolTip();
+    appendToolTip();
 
     return simulation;
 };
@@ -491,7 +490,7 @@ const drawLegend = (h: number, w: number) => {
         .attr('transform', `translate(12, 5)`);
 };
 
-const buildToolTip = () => {
+const appendToolTip = () => {
     select('body')
         .append('div')
         .attr('class', 'tooltip')

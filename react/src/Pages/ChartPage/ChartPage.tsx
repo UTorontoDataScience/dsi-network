@@ -84,7 +84,7 @@ const ChartPage: React.FC = () => {
                                 links={links}
                                 rootModel={
                                     model.campus.find(c =>
-                                        c.name.includes('eorge')
+                                        c.name.includes('George')
                                     ) as Campus
                                 }
                                 rootModelType="campus"

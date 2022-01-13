@@ -156,6 +156,7 @@ const makeLinkKey = <T extends ForceNode>(
     return `${source.data.entity.id}-${source.parent?.id}-${target.data.selected}-${target.data.entity.id}`;
 };
 
+// todo: compute based on node count
 const buildSimulation = <T,>(
     nodes: HierarchyNode<T>[],
     forceLinks: DSIForceLinks<T>
@@ -164,7 +165,9 @@ const buildSimulation = <T,>(
         .force('d', forceLinks)
         //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
         .force('charge', forceManyBody().strength(-20))
+        .force('collision', forceCollide().radius(5))
         .force('center', forceCenter())
+        .alphaTarget(0.3)
         //higher is slower, default is .4
         .velocityDecay(0.4);
 
@@ -326,7 +329,7 @@ const registerDragHandler = <T extends ForceNode>(
         e: D3DragEvent<SVGCircleElement, T, unknown>,
         d: ForceNodeSimulationWrapper<T>
     ) => {
-        simulation.alphaTarget(0.3).restart();
+        simulation.alphaTarget(0.1).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -377,8 +380,7 @@ const updateForceGraph = (tree: ForceNode) => {
     const simulationNodes = newRoot.descendants();
 
     // build new force links (can't reuse old)
-    // map to ensure that simulationNodes and their latest locations are looked up at initialization time
-    // (init time is when data is updated/mutated)
+    // map to ensure that simulationNodes and their latest locations are recomputed at initialization time
     const forceLinks = buildForceLinks(newRoot.links()).links(
         newRoot.links().map(l => ({
             source: makeNodeKey(l.source),

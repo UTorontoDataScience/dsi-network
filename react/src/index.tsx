@@ -6,7 +6,7 @@ import { ChartPage } from './Pages';
 
 const App: React.FC = () => {
     return (
-        <Container>
+        <Container maxWidth="xl">
             <ChartPage />
         </Container>
     );

@@ -1,17 +1,17 @@
 //todo: all need to extend a BaseEntity type that has id, name, type properties
 
-import { EntityType, HydratedLink, ModelEntity } from './data/model';
+import { HierarchyNode } from 'd3-hierarchy';
+import { EntityType, ModelEntity, Relationship } from './data/model';
 
 export interface BaseEntity {
     id: number;
     name: string;
     type: EntityType;
+    parentId: number | null;
+    parentType: EntityType | null;
+    relationship: Relationship | null;
 }
 
-export interface EntityWithLinks {
-    entity: ModelEntity;
-    links: HydratedLink[];
-}
 export interface AcademicProgramsDataRaw {
     campus: string;
     division: string;
@@ -207,26 +207,14 @@ export interface Person extends BaseEntity {
     name: string;
     unnamed: string;
     id: number;
-    primary_institution: string;
-    primary_role: string;
-    primary_division: string;
-    primary_department: string;
-    primary_field: string;
-    primary_level: string;
-    primary_capacity: string;
-    primary_capacity_other: string;
-    secondary_apt_bool: boolean;
-    secondary_apt: string;
-    secondary_details: string;
-    secondary_institution: string;
-    secondary_other: string;
-    secondary_role: string;
-    secondary_division: string;
-    secondary_department: string;
-    secondary_field: string;
-    secondary_level: string;
-    secondary_capacity: string;
-    secondary_capacity_other: string;
+    institution: string;
+    role: string;
+    division: string;
+    department: string;
+    field: string;
+    level: string;
+    capacity: string;
+    capacity_other: string;
     unnamed_2: string;
     research_main: string;
     research_main_other: string;
@@ -339,10 +327,16 @@ export interface Person extends BaseEntity {
     main_funding_position_private_write_in_2: string;
 }
 
+export interface DSINode
+    extends Record<string, any>,
+        HierarchyNode<ModelEntity> {
+    selected?: boolean;
+}
+
 /* typeguards for Person and Program */
 
 export const isPerson = (person: Person | ModelEntity): person is Person =>
-    !!(person as Person).primary_role;
+    !!(person as Person).role;
 
 export const isProgram = (
     program: AcademicProgram | ModelEntity

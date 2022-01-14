@@ -1,8 +1,8 @@
 {
   "name": "dsi-network",
   "version": "0.1.0",
-  "homepage": "http://UTorontoDataScience.github.io/dsi-network",
-  "private": true,
+  "homepage": "https://utorontodatascience.github.io/dsi-network/",
+  "private": false,
   "dependencies": {
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "^11.6.0",

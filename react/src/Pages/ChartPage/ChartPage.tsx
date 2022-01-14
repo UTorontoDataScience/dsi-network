@@ -12,47 +12,40 @@ import {
 import debounce from 'lodash.debounce';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
-import { EntityWithLinks } from '../../types';
-import { uniqueBy } from '../../util';
-import getModel, {
-    Campus,
-    HydratedLink,
-    hydrateLinks,
-    Model,
-    ModelEntity,
-} from '../../data/model';
+import { groupBy, uniqueBy } from '../../util/util';
+import getModel, { ModelEntity } from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [detailSelection, setDetailSelection] =
-        useState<EntityWithLinks | null>();
-    const [links, setLinks] = useState<HydratedLink[]>();
-    const [model, setModel] = useState<Model>();
+        useState<ModelEntity | null>();
+    const [model, setModel] = useState<ModelEntity[]>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
 
     useEffect(() => {
         const _getModel = async () => {
             const model = await getModel();
-            setLinks(hydrateLinks(model));
             setModel(model);
         };
         _getModel();
     }, []);
 
     const options = useMemo(() => {
-        if (links) {
-            return links
-                .flatMap(l => [
-                    { ...l.child, type: l.childType },
-                    { ...l.parent, type: l.parentType },
-                ])
-                .filter(l => !!l.name)
-                .filter(uniqueBy('name'));
+        if (model) {
+            return model.filter(uniqueBy('name'));
         } else {
             return [];
         }
-    }, [links]);
+    }, [model]);
+
+    const nameMap = useMemo(() => {
+        if (model) {
+            return groupBy(model, 'name');
+        } else {
+            return {};
+        }
+    }, [model]);
 
     return (
         <Grid container direction="column">
@@ -72,22 +65,16 @@ const ChartPage: React.FC = () => {
                 </Tabs>
             </Grid>
             {activeTab === 1 && (
-                <Grid container justifyContent="center">
-                    <PackChart />
+                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
+                    {model && <PackChart entities={model} />}
                 </Grid>
             )}
             {activeTab === 0 && (
                 <Grid container direction="row" item>
                     <Grid item xs={9}>
-                        {model && links && (
+                        {model && (
                             <ForceGraph
-                                links={links}
-                                rootModel={
-                                    model.campus.find(c =>
-                                        c.name.includes('George')
-                                    ) as Campus
-                                }
-                                rootModelType="campus"
+                                entities={model}
                                 selectedModels={selected}
                             />
                         )}
@@ -101,20 +88,8 @@ const ChartPage: React.FC = () => {
                                     option.name === value.name
                                 }
                                 onChange={(event, value, reason) => {
-                                    if (
-                                        reason === 'selectOption' &&
-                                        value &&
-                                        links
-                                    ) {
-                                        setDetailSelection({
-                                            entity: value as ModelEntity,
-                                            links: links.filter(
-                                                l =>
-                                                    l.childType ===
-                                                        value.type &&
-                                                    l.child.id === value.id
-                                            ),
-                                        });
+                                    if (reason === 'selectOption' && value) {
+                                        setDetailSelection(value);
                                     }
                                     if (reason === 'clear') {
                                         setDetailSelection(null);
@@ -133,6 +108,7 @@ const ChartPage: React.FC = () => {
                                                                 value.toLowerCase()
                                                             )
                                                 )
+                                                .flatMap(op => nameMap[op.name])
                                                 .map(op => ({
                                                     id: op.id,
                                                     type: op.type,

@@ -35,7 +35,7 @@
     "format-fix": "yarn run prettier -w src",
     "predeploy": "yarn run build",
     "type-check": "yarn run tsc --noEmit",
-    "start": "react-scripts start",
+    "start": "PUBLIC_URL=/ react-scripts start",
     "test": "react-scripts test"
   },
   "browserslist": {

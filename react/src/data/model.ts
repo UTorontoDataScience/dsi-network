@@ -9,9 +9,9 @@ import {
 import { getKeys, groupBy, uniqueBy } from '../util/util';
 
 const fetchAcademicProgramsData = async () => {
-    return (await (
-        await fetch('dsi-network/academic-programs.json')
-    ).json()) as Promise<AcademicProgramsDataRaw[]>;
+    return (await (await fetch('academic-programs.json')).json()) as Promise<
+        AcademicProgramsDataRaw[]
+    >;
 };
 
 export type Relationship =
@@ -66,7 +66,7 @@ const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
 };
 
 const fetchPeopleData = async () => {
-    return (await (await fetch('dsi-network/people.json')).json()) as Promise<
+    return (await (await fetch('people.json')).json()) as Promise<
         PersonDataRaw[]
     >;
 };

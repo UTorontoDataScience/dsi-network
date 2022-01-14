@@ -1,28 +1,27 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
+import {
+    hierarchy,
+    HierarchyLink,
+    HierarchyNode,
+    stratify,
+} from 'd3-hierarchy';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import { scaleOrdinal } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 import {
-    forceSimulation,
-    forceLink,
-    forceManyBody,
-    SimulationLinkDatum,
-    SimulationNodeDatum,
-    ForceLink,
-    Simulation,
     forceCenter,
     forceCollide,
+    forceLink,
+    ForceLink,
+    forceManyBody,
+    forceSimulation,
+    Simulation,
+    SimulationLinkDatum,
+    SimulationNodeDatum,
 } from 'd3-force';
-import {
-    EntityType,
-    HierarchicalNode,
-    HydratedLink,
-    ModelEntity,
-    Relationship,
-} from '../../data/model';
+import { EntityType, ModelEntity } from '../../data/model';
 
 // for debugging
 (window as any).d3Select = select;
@@ -50,16 +49,12 @@ export interface SelectedModel {
     id: number;
 }
 interface ForceGraphProps {
-    links: HydratedLink[];
-    rootModel: ModelEntity;
-    rootModelType: EntityType;
+    entities: ModelEntity[];
     selectedModels?: SelectedModel[];
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
-    links,
-    rootModel,
-    rootModelType,
+    entities,
     selectedModels,
 }) => {
     const [chartRendered, setChartRendered] = useState(false);
@@ -67,14 +62,26 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     const [simulation, setSimulation] = useState<DSISimulation<ForceNode>>();
 
     const tree = useMemo(() => {
-        return buildTree(
-            rootModel,
-            rootModelType,
-            'root',
-            links,
-            selectedModels
+        const root = entities.find(
+            m => m.name.includes('George') && m.type === 'campus'
+        ) as ModelEntity;
+
+        const tree = makeTreeStratify(entities, root);
+        const selectedMap = (selectedModels || []).reduce<
+            Record<string, boolean>
+        >(
+            (acc, curr) => ({
+                ...acc,
+                [`${curr.type}-${curr.id}`]: true,
+            }),
+            {}
         );
-    }, [links, rootModel, rootModelType, selectedModels]);
+
+        return mapTree(tree, t => ({
+            ...t,
+            selected: selectedMap[getEntityId(t.data)],
+        }));
+    }, [entities, selectedModels]);
 
     useEffect(() => {
         if (tree && chartRendered && selectedModels) {
@@ -82,7 +89,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             setSimulation(updateForceGraph(tree));
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps  */
-    }, [selectedModels]);
+    }, [tree]);
 
     useLayoutEffect(() => {
         if (tree && !chartRendered) {
@@ -94,28 +101,50 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     return <span id="test" />;
 };
 
-const buildTree = (
-    root: ModelEntity,
-    rootType: EntityType,
-    relationship: Relationship | 'root',
-    links: HydratedLink[],
-    selected = [] as SelectedModel[]
-): ForceNode => {
-    const childLinks = links.filter(
-        l => l.parentType === rootType && l.parent.id === root.id
-    );
+interface NNode {
+    id: string;
+    children: NNode[];
+}
 
-    return {
-        entity: root,
-        relationToParent: relationship,
-        selected: !!selected.find(s => s.id === root.id && s.type === rootType),
-        type: rootType,
-        children: [
-            ...childLinks.map(c =>
-                buildTree(c.child, c.childType, c.relationship, links, selected)
-            ),
-        ],
-    };
+export const getEntityId = (entity: ModelEntity) =>
+    `${entity.type}-${entity.id}`;
+
+const makeTree = (entities: ModelEntity[], root: NNode) => {
+    root.children = entities
+        .filter(e => `${e.parentType}-${e.parentId}` === root.id)
+        .map(e => makeTree(entities, { id: getEntityId(e), children: [] }));
+    return root;
+};
+
+const getAllChildren = (tree: NNode): string[] => {
+    const ch = tree.children.map(e => e.id);
+    return ch.concat(tree.children.flatMap(t => getAllChildren(t)));
+};
+
+/* building tree to filter is redundant -- if we keep this approach, streamline by adding filter method to d3's Node */
+const filterEntities = (entities: ModelEntity[], root: ModelEntity) => {
+    const tree = makeTree(entities, {
+        id: `${root.type}-${root.id}`,
+        children: [],
+    });
+
+    const childIds = getAllChildren(tree);
+
+    return entities.filter(
+        f => f.name === root.name || childIds.includes(getEntityId(f))
+    );
+};
+
+const makeTreeStratify = (entities: ModelEntity[], root: ModelEntity) => {
+    const stratifyFn = stratify<ModelEntity>()
+        .id(v => `${v.id}-${v.type}`)
+        .parentId(p =>
+            p.parentId && p.parentType ? `${p.parentId}-${p.parentType}` : null
+        );
+
+    const filtered = filterEntities(entities, root); /* .map(e => getId(e)) */
+
+    return stratifyFn(filtered);
 };
 
 const entityTypes: EntityType[] = [
@@ -130,7 +159,7 @@ const colorScale = scaleOrdinal(
     schemeDark2.filter((_, i) => ![3, 4].includes(i)) //remove red, since that's our highlight color
 ).domain(entityTypes);
 
-interface ForceNode extends HierarchicalNode {
+interface ForceNode extends Record<string, any>, HierarchyNode<ModelEntity> {
     selected?: boolean;
 }
 
@@ -143,7 +172,7 @@ interface ForceNodeSimulationWrapper<T>
  *  Unique key used to identify nodes for d3.join process and mapping simulation links to source/target
  */
 const makeNodeKey = (datum: ForceNodeSimulationWrapper<ForceNode>) =>
-    `${datum.data.entity.id}-${datum.data.type}-${datum.parent?.data.entity.id}-${datum.data.relationToParent}-${datum.data.selected}`;
+    `${datum.data.id}-${datum.data.data.type}-${datum.parent?.data.data.id}-${datum.data.data.relationship}-${datum.data.selected}`;
 
 /**
  *  Unique key used to identify links for d3.join process
@@ -153,7 +182,7 @@ const makeLinkKey = <T extends ForceNode>(
 ) => {
     const source = link.source as ForceNodeSimulationWrapper<T>;
     const target = link.target as ForceNodeSimulationWrapper<T>;
-    return `${source.data.entity.id}-${source.parent?.id}-${target.data.selected}-${target.data.entity.id}`;
+    return `${source.data.id}-${source.parent?.id}-${target.data.selected}-${target.data.data.id}`;
 };
 
 // todo: compute based on node count
@@ -205,7 +234,7 @@ const updateNodeSelection = <T extends ForceNode>(
         enter => {
             const enterSelection = enter
                 .append('circle')
-                .attr('fill', d => colorScale(d.data.entity.type))
+                .attr('fill', d => colorScale(d.data.data.type))
                 .attr('stroke', d => (d.children ? null : '#fff'))
                 .call(registerToolTip);
 
@@ -285,6 +314,21 @@ const registerTickHandler = <T extends ForceNode>(
     });
 };
 
+/* returns a new tree  */
+const mapTree = (
+    node: ForceNode,
+    fn: (node: ForceNode) => ForceNode
+): ForceNode => {
+    /* d3 doesn't export node constructor so we have to clone */
+    let mappedNode = fn(node);
+    const clone = Object.create(node);
+    mappedNode = Object.assign(clone, mappedNode);
+    if (node.children) {
+        mappedNode.children = node.children.map(n => mapTree(n, fn));
+    }
+    return mappedNode;
+};
+
 /*  mutate the tree so it has the coorodinates from the previous simulation*/
 const mapNodeSelectionData = (
     selectionRoot: ForceNodeSimulationWrapper<ForceNode>,
@@ -310,7 +354,7 @@ const registerToolTip = <T extends ForceNode>(
 
 const showToolTip = (e: MouseEvent) => {
     select('.tooltip')
-        .text((e!.target as any).__data__.data.entity.name)
+        .text((e!.target as any).__data__.data.data.name)
         .style('visibility', 'visible')
         .style('left', `${e.pageX + 15}px`)
         .style('top', `${e.pageY - 25}px`);
@@ -452,7 +496,7 @@ const buildForceGraph = (
         .selectAll<SVGCircleElement, never>('circle')
         .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
         .join('circle')
-        .attr('fill', d => colorScale(d.data.entity.type))
+        .attr('fill', d => colorScale(d.data.data.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
         .call(registerToolTip)

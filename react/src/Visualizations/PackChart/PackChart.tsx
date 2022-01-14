@@ -1,26 +1,27 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+export default {};
+
+/* import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { select } from 'd3-selection';
 import { scaleLinear } from 'd3-scale';
-import { pack, hierarchy, HierarchyCircularNode } from 'd3-hierarchy';
+import {
+    pack,
+    hierarchy,
+    HierarchyCircularNode,
+    HierarchyNode,
+} from 'd3-hierarchy';
 import { interpolateHcl, interpolateZoom } from 'd3-interpolate';
 import getModel, {
     Campus,
     EntityType,
-    getKeys,
-    HierarchicalLeafNode,
-    HierarchicalNode,
-    HierarchicalNodeChild,
-    HydratedLink,
-    hydrateLinks,
-    Model,
     ModelEntity,
     Relationship,
 } from '../../data/model';
+import { getKeys } from '../../util';
 
 const PackChart: React.FC = () => {
-    const [model, setModel] = useState<Model>();
+    const [model, setModel] = useState<ModelEntity[]>();
     const [HierarchicalData, setHierarchicalData] =
-        useState<HierarchicalNode>();
+        useState<HierarchyNode<ModelEntity>>();
 
     useLayoutEffect(() => {
         if (HierarchicalData) {
@@ -61,7 +62,7 @@ const getLeafs = (links: HydratedLink[], leafType: EntityType) => {
     return getKeys(counts).map(k => ({
         relationship: k,
         value: counts[k],
-    })) as HierarchicalLeafNode[];
+    }));
 };
 
 const makeNode = (
@@ -92,7 +93,6 @@ const makeNode = (
     return res;
 };
 
-/* division, unit, program, person, relationship-type-count */
 export const makeHierarchicalDataWithAggregateLeafs = (
     model: Model
 ): HierarchicalNode => {
@@ -231,3 +231,4 @@ const buildPackChart = (
 };
 
 export default PackChart;
+ */

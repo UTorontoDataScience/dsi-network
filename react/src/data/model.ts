@@ -6,7 +6,7 @@ import {
     Person,
     BaseEntity,
 } from '../types';
-import { getKeys, groupBy, uniqueBy } from '../util';
+import { getKeys, groupBy, uniqueBy } from '../util/util';
 
 const fetchAcademicProgramsData = async () => {
     return (await (

@@ -12,7 +12,7 @@ import {
 import debounce from 'lodash.debounce';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
-import { groupBy, uniqueBy } from '../../util';
+import { groupBy, uniqueBy } from '../../util/util';
 import getModel, { ModelEntity } from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
 
@@ -65,8 +65,8 @@ const ChartPage: React.FC = () => {
                 </Tabs>
             </Grid>
             {activeTab === 1 && (
-                <Grid container justifyContent="center">
-                    {/* <PackChart /> */}
+                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
+                    {model && <PackChart entities={model} />}
                 </Grid>
             )}
             {activeTab === 0 && (

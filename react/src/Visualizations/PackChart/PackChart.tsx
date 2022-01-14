@@ -1,6 +1,4 @@
-export default {};
-
-/* import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { select } from 'd3-selection';
 import { scaleLinear } from 'd3-scale';
 import {
@@ -10,116 +8,55 @@ import {
     HierarchyNode,
 } from 'd3-hierarchy';
 import { interpolateHcl, interpolateZoom } from 'd3-interpolate';
-import getModel, {
-    Campus,
-    EntityType,
-    ModelEntity,
-    Relationship,
-} from '../../data/model';
-import { getKeys } from '../../util';
+import { ModelEntity } from '../../data/model';
+import { DSINode } from '../../types';
+import { makeTreeStratify } from '../../util';
 
-const PackChart: React.FC = () => {
-    const [model, setModel] = useState<ModelEntity[]>();
-    const [HierarchicalData, setHierarchicalData] =
-        useState<HierarchyNode<ModelEntity>>();
+const PackChart: React.FC<{ entities: ModelEntity[] }> = ({ entities }) => {
+    const [HierarchicalData, setHierarchicalData] = useState<DSINode>();
 
     useLayoutEffect(() => {
         if (HierarchicalData) {
-            buildPackChart('test', HierarchicalData, 500, 500);
+            buildPackChart('test', HierarchicalData, 1000, 1000);
         }
     }, [HierarchicalData]);
 
     useEffect(() => {
-        const _getModel = async () => {
-            const model = await getModel();
-            setModel(model);
-        };
-        _getModel();
-    }, []);
-
-    useEffect(() => {
-        if (model) {
-            setHierarchicalData(makeHierarchicalDataWithAggregateLeafs(model));
+        if (entities) {
+            setHierarchicalData(makeTree(entities));
         }
-    }, [model]);
+    }, [entities]);
 
     return <span id="test" />;
 };
 
-const getLeafs = (links: HydratedLink[], leafType: EntityType) => {
-    const counts = links
-        .filter(cl => cl.childType === leafType)
-        .reduce(
-            (acc, curr) => ({
-                ...acc,
-                [curr.relationship]: acc[curr.relationship]
-                    ? acc[curr.relationship] + 1
-                    : 1,
-            }),
-            {} as { [K in Relationship]: number }
-        );
-
-    return getKeys(counts).map(k => ({
-        relationship: k,
-        value: counts[k],
-    }));
-};
-
-const makeNode = (
-    root: ModelEntity,
-    rootType: EntityType,
-    leafType: EntityType,
-    relationship: Relationship | 'root',
-    links: HydratedLink[]
-): HierarchicalNode => {
-    const childLinks = links.filter(
-        l => l.parentType === rootType && l.parent.id === root.id
+const makeTree = (model: ModelEntity[]) =>
+    makeTreeStratify(
+        model,
+        model.find(e => e.type === 'campus' && e.id === 1)!
     );
 
-    const parents = childLinks.filter(cl => cl.childType !== leafType);
-
-    const res: HierarchicalNode = {
-        entity: root,
-        relationToParent: relationship,
-        type: rootType,
-        children: [
-            ...parents.map(c =>
-                makeNode(c.child, c.childType, leafType, c.relationship, links)
-            ),
-            ...getLeafs(childLinks, leafType),
-        ],
-    };
-
-    return res;
-};
-
-export const makeHierarchicalDataWithAggregateLeafs = (
-    model: Model
-): HierarchicalNode => {
-    const hydratedLinks = hydrateLinks(model);
-
-    //problem is that we need only nodes that have persons as leaves
-    //can we use discovery to prune any links that don't have paths to persons?
-
-    const stGeorge = model.campus.find(c => c.name.includes('eorge')) as Campus;
-
-    return makeNode(stGeorge, 'campus', 'person', 'root', hydratedLinks);
-};
-
+/* we probably want to map nodes in order to calculate value for each node --> basically it just means groupby/count for child types */
 const buildPackChart = (
     id: string,
-    data: HierarchicalNode,
+    data: DSINode,
     width: number,
     height: number
 ) => {
-    const root = pack<HierarchicalNode>().size([width, height]).padding(3)(
-        hierarchy(data)
-            .sum(d => (d as unknown as HierarchicalLeafNode).value)
-            .sort((a, b) => b.value! - a.value!)
-    );
+    const root = data
+        .count()
+        .sum(d =>
+            ['professor', 'primary_investigator'].includes(d.relationship!)
+                ? 0
+                : 1
+        )
+        .sort((a, b) => b.value! - a.value!);
+
+    const packFn = pack<ModelEntity>().size([width, height]).padding(3);
 
     let focus = root;
     let view: [number, number, number];
+    const nodes = packFn(root).descendants();
 
     const svg = select(`#${id}`)
         .append('svg')
@@ -130,17 +67,13 @@ const buildPackChart = (
         .attr('width', width)
         .on('click', (_, d) => {
             if (focus !== d) {
-                zoom(d as HierarchyCircularNode<HierarchicalNode>);
+                zoom((d as HierarchyCircularNode<ModelEntity>) ?? root);
             }
             focus = root;
         });
 
-    const getLabel = (node: HierarchicalNodeChild) => {
-        if (Object.prototype.hasOwnProperty.call(node, 'relationship')) {
-            return (node as HierarchicalLeafNode).relationship;
-        } else if (Object.prototype.hasOwnProperty.call(node, 'entity')) {
-            return (node as HierarchicalNode).entity.name;
-        }
+    const getLabel = (node: DSINode) => {
+        return node.value ? `${node.data.name}: ${node.value}` : '';
     };
 
     const color = scaleLinear()
@@ -151,7 +84,7 @@ const buildPackChart = (
     const node = svg
         .append('g')
         .selectAll('circle')
-        .data(root.descendants().slice(1))
+        .data(nodes)
         .join('circle')
         .attr('fill', d => (d.children ? color(1) : 'white'))
         .attr('pointer-events', d => (!d.children ? 'none' : null))
@@ -182,7 +115,7 @@ const buildPackChart = (
         .style('display', d => (d.parent === focus ? 'inline' : 'none'))
         .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')')
         .style('font-size', '12px')
-        .text(d => (d.value ? `${getLabel(d.data)}: ${d.value}` : ''));
+        .text(d => getLabel(d));
 
     const zoomTo = (v: [number, number, number]) => {
         const k = width / v[2];
@@ -200,16 +133,13 @@ const buildPackChart = (
         node.attr('r', d => d.r * k);
     };
 
-    const zoom = (focus: HierarchyCircularNode<HierarchicalNode>) => {
+    const zoom = (f: HierarchyCircularNode<ModelEntity>) => {
+        focus = f; //global
         const transition = svg
             .transition()
             .duration(500)
             .tween('zoom', () => {
-                const i = interpolateZoom(view, [
-                    focus.x,
-                    focus.y,
-                    focus.r * 2,
-                ]);
+                const i = interpolateZoom(view, [f.x, f.y, f.r * 2]);
                 return (t: number) => zoomTo(i(t));
             });
 
@@ -231,4 +161,3 @@ const buildPackChart = (
 };
 
 export default PackChart;
- */

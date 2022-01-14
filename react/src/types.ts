@@ -1,5 +1,6 @@
 //todo: all need to extend a BaseEntity type that has id, name, type properties
 
+import { HierarchyNode } from 'd3-hierarchy';
 import { EntityType, ModelEntity, Relationship } from './data/model';
 
 export interface BaseEntity {
@@ -324,6 +325,12 @@ export interface Person extends BaseEntity {
     main_funding_position_private_crs_bool: boolean;
     main_funding_position_private_write_in_1: string;
     main_funding_position_private_write_in_2: string;
+}
+
+export interface DSINode
+    extends Record<string, any>,
+        HierarchyNode<ModelEntity> {
+    selected?: boolean;
 }
 
 /* typeguards for Person and Program */

@@ -1,35 +1,45 @@
 import React from 'react';
 import { capitalize, Card, CardContent, Typography } from '@mui/material';
+import { HierarchyNode } from 'd3-hierarchy';
 import { ModelEntity } from '../data/model';
-import { AcademicProgram, isPerson, isProgram, Person } from '../types';
+import {
+    AcademicProgram,
+    isPeopleNodes,
+    isProgramNodes,
+    Person,
+} from '../types';
 
-const resolveDetailComponet = (item: ModelEntity[]) => {
-    if (isProgram(item[0])) {
-        return <ProgramDetailCard program={item[0]} />;
-    } else if (isPerson(item[0])) {
-        return <PersonDetailCard people={item as Person[]} />;
-    } else return <BaseDetailCard entity={item[0]} />;
+const resolveDetailComponet = (nodes: HierarchyNode<ModelEntity>[]) => {
+    if (isProgramNodes(nodes)) {
+        return <ProgramDetailCard nodes={nodes} />;
+    } else if (isPeopleNodes(nodes)) {
+        return <PersonDetailCard nodes={nodes} />;
+    } else return <BaseDetailCard nodes={nodes} />;
 };
 
 interface DetailCardProps {
-    item: ModelEntity[];
+    nodes: HierarchyNode<ModelEntity>[];
 }
 
 /* if the same item is in several places, we'll get each record -- name should be identical for each -- we'll want to refine this as models are added */
-const DetailCard: React.FC<DetailCardProps> = ({ item }) => {
-    return <Card variant="elevation">{resolveDetailComponet(item)}</Card>;
+const DetailCard: React.FC<DetailCardProps> = ({ nodes }) => {
+    return <Card variant="elevation">{resolveDetailComponet(nodes)}</Card>;
 };
 
-const PersonDetailCard: React.FC<{ people: Person[] }> = ({ people }) => (
+const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
+    nodes,
+}) => (
     <CardContent>
         <Typography color="primary" variant="h4">
-            {people[0].name}
+            {nodes[0].data.name}
         </Typography>
-        {!!people[0].email && <Typography>{people[0].email}</Typography>}
-        {people.map(l => {
+        {!!nodes[0].data.email && (
+            <Typography>{nodes[0].data.email}</Typography>
+        )}
+        {nodes.map(l => {
             return (
                 <Typography key={l.id}>
-                    {capitalize(l.relationship!)}, {/* l.parent.name */}
+                    {capitalize(l.data.relationship!)}, {l.parent && l.parent.data.name}
                 </Typography>
             );
         })}
@@ -37,22 +47,22 @@ const PersonDetailCard: React.FC<{ people: Person[] }> = ({ people }) => (
 );
 
 const ProgramDetailCard: React.FC<{
-    program: AcademicProgram;
-}> = ({ program }) => (
+    nodes: HierarchyNode<AcademicProgram>[];
+}> = ({ nodes }) => (
     <CardContent>
         <Typography color="primary" variant="h4">
-            {program.name}
+            {nodes[0].data.name}
         </Typography>
-        {!!program.unit && <Typography>{program.unit}</Typography>}
+        {!!nodes[0].data.unit && <Typography>{nodes[0].data.unit}</Typography>}
     </CardContent>
 );
 
 const BaseDetailCard: React.FC<{
-    entity: ModelEntity;
-}> = ({ entity }) => (
+    nodes: HierarchyNode<ModelEntity>[];
+}> = ({ nodes }) => (
     <CardContent>
         <Typography color="primary" variant="h4">
-            {entity.name}
+            {nodes[0].data.name}
         </Typography>
     </CardContent>
 );

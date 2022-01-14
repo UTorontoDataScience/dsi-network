@@ -13,19 +13,20 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
+import { HierarchyNode } from 'd3-hierarchy';
 import debounce from 'lodash.debounce';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel, { ModelEntity } from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
-import { getEntityId } from '../../util';
+import { getEntityId, makeTreeStratify, mapTree } from '../../util';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [detailSelection, setDetailSelection] = useState<
-        ModelEntity[] | null
-    >();
+        HierarchyNode<ModelEntity>[]
+    >([]);
     const [model, setModel] = useState<ModelEntity[]>();
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
@@ -39,13 +40,37 @@ const ChartPage: React.FC = () => {
         _getModel();
     }, []);
 
+    const tree = useMemo(() => {
+        if (model && root) {
+            const tree = makeTreeStratify(model, root);
+            const selectedMap = (selected || []).reduce<
+                Record<string, boolean>
+            >(
+                (acc, curr) => ({
+                    ...acc,
+                    [`${curr.type}-${curr.id}`]: true,
+                }),
+                {}
+            );
+
+            return mapTree(tree, t => ({
+                ...t,
+                selected: selectedMap[getEntityId(t.data)],
+            }));
+        }
+    }, [model, selected, root]);
+
+    /* don't pass in nodes b/c autocomplete converts to JSON and you'll get circular errors */
     const options = useMemo(() => {
-        if (model) {
-            return model.filter(uniqueBy('name'));
+        if (tree) {
+            return tree
+                ?.descendants()
+                .filter(uniqueBy(d => d.data.name))
+                .map(v => v.data);
         } else {
             return [];
         }
-    }, [model]);
+    }, [tree]);
 
     const nameMap = useMemo(() => {
         if (model) {
@@ -80,13 +105,7 @@ const ChartPage: React.FC = () => {
             {activeTab === 0 && (
                 <Grid container direction="row" item>
                     <Grid item xs={9}>
-                        {model && root && (
-                            <ForceGraph
-                                entities={model}
-                                selectedModels={selected}
-                                root={root}
-                            />
-                        )}
+                        {tree && <ForceGraph tree={tree} />}
                     </Grid>
                     <Grid item xs={3} container direction="column" spacing={5}>
                         <Grid container direction="column" item spacing={2}>
@@ -137,16 +156,17 @@ const ChartPage: React.FC = () => {
                                                 value
                                             ) {
                                                 setDetailSelection(
-                                                    model!.filter(
-                                                        m =>
-                                                            m.type ===
-                                                                value.type &&
-                                                            m.id === value.id
-                                                    )
+                                                    tree!
+                                                        .descendants()
+                                                        .filter(
+                                                            m =>
+                                                                m.data.name ===
+                                                                value.name
+                                                        )
                                                 );
                                             }
                                             if (reason === 'clear') {
-                                                setDetailSelection(null);
+                                                setDetailSelection([]);
                                             }
                                         }}
                                         onInputChange={debounce(
@@ -181,8 +201,8 @@ const ChartPage: React.FC = () => {
                             </Grid>
                         </Grid>
                         <Grid item>
-                            {!!detailSelection && (
-                                <DetailCard item={detailSelection} />
+                            {!!detailSelection.length && (
+                                <DetailCard nodes={detailSelection} />
                             )}
                         </Grid>
                     </Grid>

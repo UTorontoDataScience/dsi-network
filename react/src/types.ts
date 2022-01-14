@@ -338,7 +338,15 @@ export interface DSINode
 export const isPerson = (person: Person | ModelEntity): person is Person =>
     !!(person as Person).role;
 
+export const isPeopleNodes = (
+    people: HierarchyNode<Person>[] | HierarchyNode<ModelEntity>[]
+): people is HierarchyNode<Person>[] => isPerson(people[0].data);
+
 export const isProgram = (
     program: AcademicProgram | ModelEntity
 ): program is AcademicProgram =>
     !!(program as AcademicProgram).degree_designation;
+
+export const isProgramNodes = (
+    programs: HierarchyNode<AcademicProgram>[] | HierarchyNode<ModelEntity>[]
+): programs is HierarchyNode<AcademicProgram>[] => isProgram(programs[0].data);

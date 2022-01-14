@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import { scaleOrdinal, scaleLinear } from 'd3-scale';
@@ -17,7 +17,6 @@ import {
     SimulationNodeDatum,
 } from 'd3-force';
 import { EntityType, ModelEntity } from '../../data/model';
-import { getEntityId, makeTreeStratify, mapTree } from '../../util';
 
 // for debugging
 (window as any).d3Select = select;
@@ -45,40 +44,16 @@ export interface SelectedModel {
     id: number;
 }
 interface ForceGraphProps {
-    entities: ModelEntity[];
-    root: ModelEntity;
-    selectedModels?: SelectedModel[];
+    tree: HierarchyNode<ModelEntity>;
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({
-    entities,
-    root,
-    selectedModels,
-}) => {
+const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
     const [chartRendered, setChartRendered] = useState(false);
     // we need to manually stop the simulation to prevent memory leaks from the tick event
     const [simulation, setSimulation] = useState<DSISimulation<DSINode>>();
 
-    const tree = useMemo(() => {
-        const tree = makeTreeStratify(entities, root);
-        const selectedMap = (selectedModels || []).reduce<
-            Record<string, boolean>
-        >(
-            (acc, curr) => ({
-                ...acc,
-                [`${curr.type}-${curr.id}`]: true,
-            }),
-            {}
-        );
-
-        return mapTree(tree, t => ({
-            ...t,
-            selected: selectedMap[getEntityId(t.data)],
-        }));
-    }, [entities, selectedModels, root]);
-
     useEffect(() => {
-        if (tree && chartRendered && selectedModels) {
+        if (tree && chartRendered) {
             // crude check for now, soon we'll want a proper transition
             simulation!.stop();
             if (tree.descendants().length === simulation?.nodes().length) {
@@ -138,8 +113,8 @@ const makeLinkKey = <T extends DSINode>(
 };
 
 /* rough scales for now */
-const decayScale = scaleLinear().domain([0, 400]).range([0.01, 0.6]);
-const distanceScale = scaleLinear().domain([0, 400]).range([30, 1]);
+const decayScale = scaleLinear().domain([0, 400]).range([0.01, 0.7]);
+const distanceScale = scaleLinear().domain([0, 400]).range([30, 5]);
 
 // todo: add pixel count
 const buildSimulation = <T,>(

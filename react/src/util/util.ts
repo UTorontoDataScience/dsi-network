@@ -6,9 +6,13 @@ export const capitalize = (word: string) =>
         .join('');
 
 export const uniqueBy =
-    <T extends object, K extends keyof T>(field: K) =>
+    <T extends object, K extends keyof T>(field: K | ((arg: T) => string)) =>
     (m: T, i: number, arr: T[]) =>
-        arr.findIndex((model: T) => model[field] === m[field]) === i;
+        arr.findIndex((model: T) => {
+            return typeof field === 'function'
+                ? field(model) === field(m)
+                : model[field] === m[field];
+        }) === i;
 
 export function groupBy<T extends Record<string, any>, K extends keyof T>(
     items: T[],

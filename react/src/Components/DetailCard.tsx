@@ -1,5 +1,5 @@
 import React from 'react';
-import { capitalize, Card, CardContent, Typography } from '@mui/material';
+import { Card, CardContent, Typography } from '@mui/material';
 import { ModelEntity } from '../data/model';
 import { AcademicProgram, isPerson, isProgram, Person } from '../types';
 

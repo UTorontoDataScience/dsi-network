@@ -29,7 +29,7 @@
     "build": "react-scripts build",
     "deploy": "gh-pages -d build",
     "eject": "react-scripts eject",
-    "lint-check": "yarn run eslint src",
+    "lint-check": "yarn run eslint --max-warnings 0 src",
     "lint-fix": "yarn run eslint --fix src",
     "format-check": "yarn run prettier -c src",
     "format-fix": "yarn run prettier -w src",

@@ -1,6 +1,5 @@
-import { stratify } from 'd3-hierarchy';
+import { HierarchyNode, stratify } from 'd3-hierarchy';
 import { ModelEntity } from '../data/model';
-import { DSINode } from '../types';
 
 /* simple node for filtering  */
 interface NNode {
@@ -52,17 +51,22 @@ export const makeTreeStratify = (
     return stratifyFn(filtered);
 };
 
-/* returns a new tree -- if mutation is ok, then use d3-hierarchy.node.eachBefore  */
-export const mapTree = (
-    node: DSINode,
-    fn: (node: DSINode) => DSINode
-): DSINode => {
+/* 
+    returns a new tree -- if mutation is ok, then use d3-hierarchy.node.each*  
+*/
+export const mapTree = <T extends object, R extends HierarchyNode<T>>(
+    node: HierarchyNode<T>,
+    fn: (node: HierarchyNode<T>) => R
+): R => {
     /* d3 doesn't export node constructor so we have to clone */
     let mappedNode = fn(node);
     const clone = Object.create(node);
     mappedNode = Object.assign(clone, mappedNode);
     if (node.children) {
-        mappedNode.children = node.children.map(n => mapTree(n, fn));
+        mappedNode.children = node.children.map(n => {
+            n.parent = mappedNode;
+            return mapTree(n, fn);
+        });
     }
     return mappedNode;
 };

@@ -1,16 +1,11 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { select } from 'd3-selection';
 import { scaleLinear } from 'd3-scale';
-import {
-    pack,
-    hierarchy,
-    HierarchyCircularNode,
-    HierarchyNode,
-} from 'd3-hierarchy';
+import { pack, HierarchyCircularNode, HierarchyNode } from 'd3-hierarchy';
 import { interpolateHcl, interpolateZoom } from 'd3-interpolate';
-import { ModelEntity } from '../../data/model';
-import { DSINode } from '../../types';
-import { makeTreeStratify } from '../../util';
+import { ModelEntity, Relationship } from '../../data/model';
+import { BaseEntity, DSINode } from '../../types';
+import { groupBy, makeTreeStratify, mapTree } from '../../util';
 
 const PackChart: React.FC<{ entities: ModelEntity[] }> = ({ entities }) => {
     const [HierarchicalData, setHierarchicalData] = useState<DSINode>();
@@ -36,6 +31,10 @@ const makeTree = (model: ModelEntity[]) =>
         model.find(e => e.type === 'campus' && e.id === 1)!
     );
 
+interface DSIPackNode extends DSINode {
+    personMap?: Record<keyof Relationship, number>;
+}
+
 /* we probably want to map nodes in order to calculate value for each node --> basically it just means groupby/count for child types */
 const buildPackChart = (
     id: string,
@@ -43,14 +42,38 @@ const buildPackChart = (
     width: number,
     height: number
 ) => {
-    const root = data
-        .count()
-        .sum(d =>
-            ['professor', 'primary_investigator'].includes(d.relationship!)
-                ? 0
-                : 1
-        )
-        .sort((a, b) => b.value! - a.value!);
+    const mapped = mapTree<ModelEntity, DSIPackNode>(data, node => {
+        const personChildren = (node.children || []).filter(
+            n => n.data.type === 'person'
+        );
+
+        const nonPersonChildren = (node.children || []).filter(
+            n => n.data.type !== 'person'
+        );
+
+        if (personChildren) {
+            const personMap = Object.fromEntries(
+                Object.entries(
+                    groupBy(
+                        personChildren,
+                        (d: HierarchyNode<ModelEntity>) => d.data.relationship!
+                    )
+                ).map(([k, v]) => [k, v.length])
+            );
+            (node as DSIPackNode).personMap = personMap as Record<
+                keyof Relationship,
+                number
+            >;
+        }
+
+        if (nonPersonChildren.length) {
+            node.children = nonPersonChildren;
+        }
+        return node as DSIPackNode;
+    });
+
+    // set `value` to total children count
+    const root = mapped.count().sort((a, b) => b.value! - a.value!);
 
     const packFn = pack<ModelEntity>().size([width, height]).padding(3);
 
@@ -72,8 +95,16 @@ const buildPackChart = (
             focus = root;
         });
 
-    const getLabel = (node: DSINode) => {
-        return node.value ? `${node.data.name}: ${node.value}` : '';
+    const getLabel = (node: DSIPackNode) => {
+        /* const labelVal =
+            node.personMap && Object.values(node.personMap).length 
+                ? Object.entries(node.personMap).reduce(
+                      (acc, [k, v], i) => `${acc}${i && '\n'}${k}:${v}`,
+                      ''
+                  )
+                : `${node.value && node.value > 1 ? `: ${node.value}` : ''}`; */
+
+        return `${node.data.name.split(/" "/g).join('\n')}`;
     };
 
     const color = scaleLinear()
@@ -113,7 +144,9 @@ const buildPackChart = (
         .join('text')
         .style('fill-opacity', d => (d.parent === focus ? 1 : 0))
         .style('display', d => (d.parent === focus ? 'inline' : 'none'))
-        .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')')
+        .attr('transform', d => {
+            return 'translate(' + d.x + ',' + d.y + ')';
+        })
         .style('font-size', '12px')
         .text(d => getLabel(d));
 

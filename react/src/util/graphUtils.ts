@@ -42,9 +42,9 @@ export const makeTreeStratify = (
     root: ModelEntity
 ) => {
     const stratifyFn = stratify<ModelEntity>()
-        .id(v => `${v.id}-${v.type}`)
+        .id(getEntityId)
         .parentId(p =>
-            p.parentId && p.parentType ? `${p.parentId}-${p.parentType}` : null
+            p.parentId && p.parentType ? `${p.parentType}-${p.parentId}` : null
         );
 
     const filtered = filterEntities(entities, root);

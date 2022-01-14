@@ -140,8 +140,7 @@ const buildUpdateSimulation = <T,>(
         .force('charge', forceManyBody().strength(-21))
         .force('collision', forceCollide().radius(7.5))
         .force('center', forceCenter().strength(0.05))
-        .velocityDecay(0.9)
-        .alpha(0.3);
+        .velocityDecay(0.9);
 };
 
 const buildForceLinks = <T extends DSINode>(links: HierarchyLink<T>[]) =>

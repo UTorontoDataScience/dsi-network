@@ -30,6 +30,7 @@ const ChartPage: React.FC = () => {
     const [model, setModel] = useState<ModelEntity[]>();
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
+    const [tree0, setTree0] = useState<HierarchyNode<ModelEntity>>();
 
     useEffect(() => {
         const _getModel = async () => {
@@ -40,9 +41,23 @@ const ChartPage: React.FC = () => {
         _getModel();
     }, []);
 
+    /* base tree */
+    useEffect(() => {
+        if (model && root && !tree0) {
+            setTree0(makeTreeStratify(model, root));
+        }
+    }, [model, root, tree0]);
+
+    /* tree with latest root */
+    const _tree = useMemo(() => {
+        if (tree0 && root) {
+            return tree0.find(n => n.id === getEntityId(root));
+        }
+    }, [tree0, root]);
+
+    /* tree with `selected` attribute */
     const tree = useMemo(() => {
-        if (model && root) {
-            const tree = makeTreeStratify(model, root);
+        if (_tree) {
             const selectedMap = (selected || []).reduce<
                 Record<string, boolean>
             >(
@@ -53,12 +68,12 @@ const ChartPage: React.FC = () => {
                 {}
             );
 
-            return mapTree(tree, t => ({
+            return mapTree(_tree, t => ({
                 ...t,
                 selected: selectedMap[getEntityId(t.data)],
             }));
         }
-    }, [model, selected, root]);
+    }, [selected, _tree]);
 
     /* don't pass in nodes b/c autocomplete converts to JSON and you'll get circular errors */
     const options = useMemo(() => {

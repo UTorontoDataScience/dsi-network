@@ -3,7 +3,11 @@ import {
     AppBar,
     Autocomplete,
     Box,
+    FormControl,
     Grid,
+    InputLabel,
+    MenuItem,
+    Select,
     Tab,
     Tabs,
     TextField,
@@ -15,18 +19,22 @@ import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel, { ModelEntity } from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
+import { getEntityId } from '../../util';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
-    const [detailSelection, setDetailSelection] =
-        useState<ModelEntity | null>();
+    const [detailSelection, setDetailSelection] = useState<
+        ModelEntity[] | null
+    >();
     const [model, setModel] = useState<ModelEntity[]>();
+    const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
 
     useEffect(() => {
         const _getModel = async () => {
             const model = await getModel();
             setModel(model);
+            setRoot(model.find(m => m.type === 'dsi'));
         };
         _getModel();
     }, []);
@@ -72,55 +80,105 @@ const ChartPage: React.FC = () => {
             {activeTab === 0 && (
                 <Grid container direction="row" item>
                     <Grid item xs={9}>
-                        {model && (
+                        {model && root && (
                             <ForceGraph
                                 entities={model}
                                 selectedModels={selected}
+                                root={root}
                             />
                         )}
                     </Grid>
                     <Grid item xs={3} container direction="column" spacing={5}>
-                        <Grid item>
-                            <Autocomplete
-                                clearOnEscape
-                                getOptionLabel={m => m.name}
-                                isOptionEqualToValue={(option, value) =>
-                                    option.name === value.name
-                                }
-                                onChange={(event, value, reason) => {
-                                    if (reason === 'selectOption' && value) {
-                                        setDetailSelection(value);
-                                    }
-                                    if (reason === 'clear') {
-                                        setDetailSelection(null);
-                                    }
-                                }}
-                                onInputChange={debounce(
-                                    (event, value) =>
-                                        setSelected(
-                                            options
-                                                .filter(
-                                                    option =>
-                                                        !!value &&
-                                                        option.name
-                                                            .toLowerCase()
-                                                            .includes(
-                                                                value.toLowerCase()
-                                                            )
+                        <Grid container direction="column" item spacing={2}>
+                            <Grid item>
+                                <FormControl fullWidth>
+                                    <InputLabel>Set Root</InputLabel>
+                                    <Select
+                                        onChange={e =>
+                                            setRoot(
+                                                (model || []).find(
+                                                    m =>
+                                                        e.target &&
+                                                        getEntityId(m) ===
+                                                            e.target.value
                                                 )
-                                                .flatMap(op => nameMap[op.name])
-                                                .map(op => ({
-                                                    id: op.id,
-                                                    type: op.type,
-                                                }))
-                                        ),
-                                    500
-                                )}
-                                options={options}
-                                renderInput={params => (
-                                    <TextField {...params} label="Search" />
-                                )}
-                            />
+                                            )
+                                        }
+                                        value={root ? getEntityId(root) : ''}
+                                    >
+                                        {(model || [])
+                                            .filter(m =>
+                                                ['campus', 'dsi'].includes(
+                                                    m.type
+                                                )
+                                            )
+                                            .map(m => (
+                                                <MenuItem
+                                                    key={m.name}
+                                                    value={getEntityId(m)}
+                                                >
+                                                    {m.name}
+                                                </MenuItem>
+                                            ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item>
+                                <FormControl fullWidth>
+                                    <Autocomplete
+                                        clearOnEscape
+                                        getOptionLabel={m => m.name}
+                                        isOptionEqualToValue={(option, value) =>
+                                            option.name === value.name
+                                        }
+                                        onChange={(event, value, reason) => {
+                                            if (
+                                                reason === 'selectOption' &&
+                                                value
+                                            ) {
+                                                setDetailSelection(
+                                                    model!.filter(
+                                                        m =>
+                                                            m.type ===
+                                                                value.type &&
+                                                            m.id === value.id
+                                                    )
+                                                );
+                                            }
+                                            if (reason === 'clear') {
+                                                setDetailSelection(null);
+                                            }
+                                        }}
+                                        onInputChange={debounce(
+                                            (event, value) =>
+                                                setSelected(
+                                                    options
+                                                        .filter(
+                                                            option =>
+                                                                !!value &&
+                                                                option.name
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        value.toLowerCase()
+                                                                    )
+                                                        )
+                                                        .flatMap(
+                                                            op =>
+                                                                nameMap[op.name]
+                                                        )
+                                                ),
+                                            500
+                                        )}
+                                        options={options}
+                                        renderInput={params => (
+                                            <TextField
+                                                {...params}
+                                                label="Search"
+                                            />
+                                        )}
+                                    />
+                                </FormControl>
+                            </Grid>
                         </Grid>
                         <Grid item>
                             {!!detailSelection && (

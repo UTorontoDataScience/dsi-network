@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { hierarchy, HierarchyLink, HierarchyNode } from 'd3-hierarchy';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
-import { scaleOrdinal } from 'd3-scale';
+import { scaleOrdinal, scaleLinear } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import 'd3-transition'; // must be imported so selection.transition will resolve
@@ -46,11 +46,13 @@ export interface SelectedModel {
 }
 interface ForceGraphProps {
     entities: ModelEntity[];
+    root: ModelEntity;
     selectedModels?: SelectedModel[];
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     entities,
+    root,
     selectedModels,
 }) => {
     const [chartRendered, setChartRendered] = useState(false);
@@ -58,10 +60,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     const [simulation, setSimulation] = useState<DSISimulation<DSINode>>();
 
     const tree = useMemo(() => {
-        const root = entities.find(
-            m => m.name.includes('George') && m.type === 'campus'
-        ) as ModelEntity;
-
         const tree = makeTreeStratify(entities, root);
         const selectedMap = (selectedModels || []).reduce<
             Record<string, boolean>
@@ -77,12 +75,18 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             ...t,
             selected: selectedMap[getEntityId(t.data)],
         }));
-    }, [entities, selectedModels]);
+    }, [entities, selectedModels, root]);
 
     useEffect(() => {
         if (tree && chartRendered && selectedModels) {
+            // crude check for now, soon we'll want a proper transition
             simulation!.stop();
-            setSimulation(updateForceGraph(tree));
+            if (tree.descendants().length === simulation?.nodes().length) {
+                setSimulation(updateForceGraph(tree));
+            } else {
+                select('svg').remove();
+                setSimulation(buildForceGraph(tree, 'test', 1000, 700));
+            }
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps  */
     }, [tree]);
@@ -133,19 +137,24 @@ const makeLinkKey = <T extends DSINode>(
     return `${source.data.id}-${source.parent?.id}-${target.data.selected}-${target.data.data.id}`;
 };
 
-// todo: compute based on node count
+/* rough scales for now */
+const decayScale = scaleLinear().domain([0, 400]).range([0.01, 0.6]);
+const distanceScale = scaleLinear().domain([0, 400]).range([30, 1]);
+
+// todo: add pixel count
 const buildSimulation = <T,>(
     nodes: HierarchyNode<T>[],
     forceLinks: DSIForceLinks<T>
 ) =>
     forceSimulation<SimulationWrapper<T>>(nodes)
-        .force('d', forceLinks)
-        //decreasing strength while increasing decay will create larger graphic (possibly overflowing)
-        .force('charge', forceManyBody().strength(-20))
+        .force(
+            'd',
+            forceLinks.distance(distanceScale(nodes.length)).strength(1)
+        )
+        .force('charge', forceManyBody().strength(-10))
         .force('collision', forceCollide().radius(5))
         .force('center', forceCenter())
-        //higher is slower, default is .4
-        .velocityDecay(0.4);
+        .velocityDecay(decayScale(nodes.length));
 
 const buildUpdateSimulation = <T,>(
     nodes: HierarchyNode<T>[],
@@ -433,7 +442,7 @@ const drawLegend = (h: number, w: number) => {
     svg.selectAll('g.legend')
         .data(colorScale.domain())
         .join('g')
-        .attr('transform', (_, i) => `translate(${-(w / 2) + 75}, ${i * 20})`)
+        .attr('transform', (_, i) => `translate(${w / 2 - 75}, ${i * 20})`)
         .attr('class', 'legend')
         .append('circle')
         .attr('r', 5)

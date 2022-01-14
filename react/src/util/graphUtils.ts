@@ -31,9 +31,10 @@ const filterEntities = (entities: ModelEntity[], root: ModelEntity) => {
 
     const childIds = getAllChildrenIds(tree);
 
-    return entities.filter(
-        f => f.name === root.name || childIds.includes(getEntityId(f))
-    );
+    /* we're going to break the references on each rebuild before setting parent to null (for now) */
+    return entities
+        .filter(f => f.name === root.name || childIds.includes(getEntityId(f)))
+        .map(e => JSON.parse(JSON.stringify(e)));
 };
 
 export const makeTreeStratify = (
@@ -46,7 +47,12 @@ export const makeTreeStratify = (
             p.parentId && p.parentType ? `${p.parentId}-${p.parentType}` : null
         );
 
-    const filtered = filterEntities(entities, root); /* .map(e => getId(e)) */
+    const filtered = filterEntities(entities, root);
+
+    const newRoot = filtered.find(m => getEntityId(m) === getEntityId(root))!;
+
+    newRoot.parentId = null;
+    newRoot.parentType = null;
 
     return stratifyFn(filtered);
 };

@@ -17,6 +17,7 @@ const fetchAcademicProgramsData = async () => {
 export type Relationship =
     | 'affiliate'
     | 'department'
+    | 'campus'
     | 'division'
     | 'fellow'
     | 'graduate_student'
@@ -33,6 +34,7 @@ export type Relationship =
 export interface EntityDict {
     campus: Campus[];
     division: Division[];
+    dsi: DSI;
     person: Person[];
     program: AcademicProgram[];
     unit: Unit[];
@@ -108,6 +110,8 @@ export type Division = BaseEntity;
 
 export type Unit = BaseEntity;
 
+export type DSI = BaseEntity;
+
 export type EntityType = keyof EntityDict;
 
 // people should be limited to these roles already
@@ -125,13 +129,22 @@ const transformDepartmentName = (name: string) =>
 
 /* mutates program and people entities by adding parent identifiers and splitting people by role */
 const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
+    const DSI: DSI = {
+        id: 1,
+        type: 'dsi',
+        name: 'Data Sciences Institute',
+        ...{ ...initialEntityAttributes },
+    };
+
     const campuses: Campus[] = [...new Set(programs.map(u => u.campus))]
         .filter(Boolean)
         .map((d, id) => ({
             name: d,
             id: id + 1,
+            parentId: 1,
+            parentType: 'dsi',
+            relationship: 'campus',
             type: 'campus' as const,
-            ...initialEntityAttributes,
         }));
 
     const divisions = programs
@@ -222,11 +235,12 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
         .filter(p => !!p && p.parentId) as AcademicProgram[];
 
     return [
-        ...filteredPrograms,
-        ...units,
-        ...divisions,
         ...campuses,
+        ...divisions,
+        DSI,
+        ...filteredPrograms,
         ...linkedPeople,
+        ...units,
     ];
 };
 const getModel = async (): Promise<ModelEntity[]> => {

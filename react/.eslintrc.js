@@ -19,6 +19,7 @@ module.exports = {
     },
     plugins: ["@typescript-eslint", "import", "react", "react-hooks"],
     rules: {
+        "no-console": "warn",
         "no-debugger": "off",
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",

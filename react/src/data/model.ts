@@ -34,7 +34,7 @@ export type Relationship =
 export interface EntityDict {
     campus: Campus[];
     division: Division[];
-    dsi: DSI;
+    institution: Institution;
     person: Person[];
     program: AcademicProgram[];
     unit: Unit[];
@@ -110,7 +110,7 @@ export type Division = BaseEntity;
 
 export type Unit = BaseEntity;
 
-export type DSI = BaseEntity;
+export type Institution = BaseEntity;
 
 export type EntityType = keyof EntityDict;
 
@@ -120,19 +120,12 @@ const getPersonRelationship = (role: string): Relationship =>
         ? 'professor'
         : 'principal_investigator';
 
-const transformDepartmentName = (name: string) =>
-    (name || '')
-        .toLowerCase()
-        .replace(/(,|(department of))/g, '')
-        .replace('&', 'and')
-        .trim();
-
 /* mutates program and people entities by adding parent identifiers and splitting people by role */
 const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
-    const DSI: DSI = {
+    const UofT: Institution = {
         id: 1,
-        type: 'dsi',
-        name: 'Data Sciences Institute',
+        type: 'institution',
+        name: 'University of Toronto',
         ...{ ...initialEntityAttributes },
     };
 
@@ -142,7 +135,7 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
             name: d,
             id: id + 1,
             parentId: 1,
-            parentType: 'dsi',
+            parentType: 'institution',
             relationship: 'campus',
             type: 'campus' as const,
         }));
@@ -174,7 +167,7 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
     /* filter out all but PIs and professors and map to departments */
     const departmentMap = people.reduce<{ [key: string]: [Person] }>(
         (acc, curr) => {
-            const department = transformDepartmentName(curr.department);
+            const department = curr.department;
 
             if (
                 curr.role &&
@@ -195,8 +188,8 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
     // people data doesn't typically map to programs (e.g., a major), so we'll attach to units instead
     const linkedPeople = units.flatMap(u => {
         //add people to department
-        return departmentMap[transformDepartmentName(u.name)]
-            ? departmentMap[transformDepartmentName(u.name)].map(p => ({
+        return departmentMap[u.name]
+            ? departmentMap[u.name].map(p => ({
                   ...p,
                   parentType: 'unit',
                   parentId: u.id,
@@ -237,9 +230,9 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
     return [
         ...campuses,
         ...divisions,
-        DSI,
         ...filteredPrograms,
         ...linkedPeople,
+        UofT,
         ...units,
     ];
 };

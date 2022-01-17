@@ -36,7 +36,7 @@ const ChartPage: React.FC = () => {
         const _getModel = async () => {
             const model = await getModel();
             setModel(model);
-            setRoot(model.find(m => m.type === 'dsi'));
+            setRoot(model.find(m => m.type === 'institution'));
         };
         _getModel();
     }, []);
@@ -142,9 +142,10 @@ const ChartPage: React.FC = () => {
                                     >
                                         {(model || [])
                                             .filter(m =>
-                                                ['campus', 'dsi'].includes(
-                                                    m.type
-                                                )
+                                                [
+                                                    'campus',
+                                                    'institution',
+                                                ].includes(m.type)
                                             )
                                             .map(m => (
                                                 <MenuItem

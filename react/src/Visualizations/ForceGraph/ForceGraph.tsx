@@ -17,6 +17,7 @@ import {
     SimulationNodeDatum,
 } from 'd3-force';
 import { EntityType, ModelEntity } from '../../data/model';
+import { capitalize } from '../../util';
 
 // for debugging
 (window as any).d3Select = select;
@@ -416,7 +417,7 @@ const drawLegend = (h: number, w: number) => {
     svg.selectAll('g.legend')
         .data(colorScale.domain())
         .join('g')
-        .attr('transform', (_, i) => `translate(${w / 2 - 75}, ${i * 20})`)
+        .attr('transform', (_, i) => `translate(${w / 2 - 80}, ${i * 20})`)
         .attr('class', 'legend')
         .append('circle')
         .attr('r', 5)
@@ -424,12 +425,7 @@ const drawLegend = (h: number, w: number) => {
 
     svg.selectAll<BaseType, string>('g.legend')
         .append('text')
-        .text((d: string) =>
-            d
-                .split('')
-                .map((l, i) => (i === 0 ? l.toUpperCase() : l))
-                .join('')
-        )
+        .text((d: string) => capitalize(d))
         .attr('transform', `translate(12, 5)`);
 };
 

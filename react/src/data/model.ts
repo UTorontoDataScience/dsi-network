@@ -140,25 +140,43 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
             type: 'campus' as const,
         }));
 
-    const divisions = programs
-        .filter(uniqueBy('division'))
+    const divisionMap = groupBy(programs, 'division');
+
+    /* if a division has a campus, associate it, otherwise, associate with uoft generally */
+    const divisions = [
+        ...new Set(
+            programs.map(d => d.division).concat(people.map(d => d.division))
+        ),
+    ]
         .map((d, i) => ({
             id: i + 1,
-            name: d.division,
+            name: d,
             type: 'division' as const,
-            parentId: campuses.find(c => c.name === d.campus)?.id,
-            parentType: 'campus',
+            parentId: divisionMap[d]
+                ? campuses.find(c => divisionMap[d][0].campus! === c.name)!.id
+                : UofT.id,
+            parentType: divisionMap[d] ? 'campus' : 'institution',
             relationship: 'division',
         }))
         .filter(d => !!d.name && d.parentId) as Division[];
 
+    const allDivisionMap = groupBy(divisions, 'name');
+
     const units = programs
         .filter(uniqueBy('unit'))
+        .map(u => ({ division: u.division, department: u.unit }))
+        .concat(
+            people
+                .filter(uniqueBy('department'))
+                .map(p => ({ department: p.department, division: p.division }))
+        )
+        .filter(uniqueBy('department'))
+        .filter(d => allDivisionMap[d.division])
         .map((u, i) => ({
             id: i + 1,
-            name: u.unit,
+            name: u.department,
             type: 'unit' as const,
-            parentId: divisions.find(d => d.name === u.division)?.id,
+            parentId: allDivisionMap[u.division][0].id,
             parentType: 'division',
             relationship: 'unit',
         }))

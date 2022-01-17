@@ -114,8 +114,8 @@ const makeLinkKey = <T extends DSINode>(
 };
 
 /* rough scales for now */
-const decayScale = scaleLinear().domain([0, 400]).range([0.01, 0.7]);
-const distanceScale = scaleLinear().domain([0, 400]).range([30, 5]);
+const decayScale = scaleLinear().domain([0, 1000]).range([0.01, 0.9]);
+const distanceScale = scaleLinear().domain([0, 1000]).range([30, 1]);
 
 // todo: add pixel count
 const buildSimulation = <T,>(

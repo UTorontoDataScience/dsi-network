@@ -158,7 +158,7 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
             parentType: divisionMap[d] ? 'campus' : 'institution',
             relationship: 'division',
         }))
-        .filter(d => !!d.name && d.parentId) as Division[];
+        .filter(d => !!d.name && d.parentId && d.name) as Division[];
 
     const allDivisionMap = groupBy(divisions, 'name');
 
@@ -171,6 +171,7 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
                 .map(p => ({ department: p.department, division: p.division }))
         )
         .filter(uniqueBy('department'))
+        .filter(d => d.department !== 'Not Applicable')
         .filter(d => allDivisionMap[d.division])
         .map((u, i) => ({
             id: i + 1,
@@ -204,6 +205,7 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
     );
 
     // people data doesn't typically map to programs (e.g., a major), so we'll attach to units instead
+    // todo: sometimes people are linked directly to a division (e.g., Rotman), so if we can't find a department, link to division instead
     const linkedPeople = units.flatMap(u => {
         //add people to department
         return departmentMap[u.name]

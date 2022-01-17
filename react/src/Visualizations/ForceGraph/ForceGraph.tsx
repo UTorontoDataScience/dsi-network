@@ -115,7 +115,7 @@ const makeLinkKey = <T extends DSINode>(
 
 /* rough scales for now */
 const decayScale = scaleLinear().domain([0, 1000]).range([0.01, 0.9]);
-const distanceScale = scaleLinear().domain([0, 1000]).range([30, 1]);
+const distanceScale = scaleLinear().domain([0, 1000]).range([30, 10]);
 
 // todo: add pixel count
 const buildSimulation = <T,>(
@@ -127,7 +127,7 @@ const buildSimulation = <T,>(
             'd',
             forceLinks.distance(distanceScale(nodes.length)).strength(1)
         )
-        .force('charge', forceManyBody().strength(-10))
+        .force('charge', forceManyBody().strength(-8))
         .force('collision', forceCollide().radius(5))
         .force('center', forceCenter())
         .velocityDecay(decayScale(nodes.length));

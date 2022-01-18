@@ -83,7 +83,9 @@ const colorScale = scaleOrdinal(
 interface DSINode
     extends Record<string, any>,
         HierarchyNode<ModelEntity>,
-        SimulationNodeDatum {}
+        SimulationNodeDatum {
+    selected?: boolean;
+}
 
 /**
  *  Unique key used to identify nodes for d3.join process and mapping simulation links to source/target
@@ -130,29 +132,34 @@ const updateNodeSelection = (
 ) => {
     const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
 
-    bound.join(
-        enter => {
-            const enterSelection = enter
-                .append('circle')
-                .attr('fill', d => colorScale(d.data.type))
-                .attr('stroke', d => (d.children ? null : '#fff'))
-                .call(registerToolTip);
+    bound
+        .join(
+            enter => {
+                const enterSelection = enter
+                    .append('circle')
+                    .attr('fill', d => colorScale(d.data.type))
+                    .attr('stroke', d => (d.children ? null : '#fff'))
+                    .call(registerToolTip);
 
-            enterSelection
-                .transition()
-                .attr('r', d => (d.selected ? 12 : 5))
-                .attr('fill', function (d) {
-                    return d.selected ? '#e7298a' : select(this).attr('fill');
-                })
-                .duration(1500);
+                enterSelection
+                    .transition()
+                    .attr('r', d => (d.selected ? 7 : 5))
+                    .attr('fill', function (d) {
+                        return d.selected
+                            ? '#e7298a'
+                            : select(this).attr('fill');
+                    })
+                    .duration(1500);
 
-            return enterSelection;
-        },
-        update => update,
-        exit => {
-            exit.transition().attr('r', 0).duration(1500).remove();
-        }
-    );
+                return enterSelection;
+            },
+            update => update,
+            exit => {
+                exit.transition().attr('r', 0).duration(1500).remove();
+            }
+        )
+        //ensure selected are in "front"
+        .sort(a => (a.selected ? 1 : -1));
 
     return bound.enter().data();
 };

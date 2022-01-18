@@ -69,6 +69,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
 const entityTypes: EntityType[] = [
     'campus',
     'division',
+    'institution',
     'person',
     'program',
     'unit',
@@ -109,25 +110,15 @@ const buildSimulation = (nodes: DSINode[], forceLinks: DSIForceLinks) =>
             'd',
             forceLinks.distance(distanceScale(nodes.length)).strength(1)
         )
-        .force('charge', forceManyBody().strength(-8))
-        .force('collision', forceCollide().radius(5))
+        .force('charge', forceManyBody().strength(-9))
+        .force('collision', forceCollide().radius(6))
         .force('center', forceCenter())
         .velocityDecay(decayScale(nodes.length));
 
-const buildUpdateSimulation = (nodes: DSINode[], forceLinks: DSIForceLinks) => {
-    return forceSimulation<DSINode>(nodes)
-        .force('d', forceLinks)
-        .force('charge', forceManyBody().strength(-21))
-        .force('collision', forceCollide().radius(7.5))
-        .force('center', forceCenter().strength(0.05))
-        .velocityDecay(0.9);
-};
-
 const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
-    forceLink<DSINode, SimulationLinkDatum<DSINode>>(links)
-        .id(model => makeNodeKey(model))
-        .distance(12)
-        .strength(1);
+    forceLink<DSINode, SimulationLinkDatum<DSINode>>(links).id(model =>
+        makeNodeKey(model)
+    );
 
 /**
  *  Update nodes and return enter selection data for use by caller
@@ -148,9 +139,9 @@ const updateNodeSelection = (
 
             enterSelection
                 .transition()
-                .attr('r', d => (d.selected ? 10 : 5))
+                .attr('r', d => (d.selected ? 12 : 5))
                 .attr('fill', function (d) {
-                    return d.selected ? 'red' : select(this).attr('fill');
+                    return d.selected ? '#e7298a' : select(this).attr('fill');
                 })
                 .duration(1500);
 
@@ -165,7 +156,7 @@ const updateNodeSelection = (
     return bound.enter().data();
 };
 
-const updateLinkData = (
+const updateLinkSelection = (
     linkSelection: Selection<
         SVGLineElement,
         SimulationLinkDatum<DSINode>,
@@ -230,7 +221,7 @@ const registerToolTip = (selection: DSINodeSelection) => {
 
 const showToolTip = (e: MouseEvent) => {
     select('.tooltip')
-        .text((e!.target as any).__data__.data.data.name)
+        .text((e!.target as any).__data__.data.name)
         .style('visibility', 'visible')
         .style('left', `${e.pageX + 15}px`)
         .style('top', `${e.pageY - 25}px`);
@@ -248,7 +239,11 @@ const registerDragHandler = (
         e: D3DragEvent<SVGCircleElement, DSINode, unknown>,
         d: DSINode
     ) => {
-        simulation.alphaTarget(0.1).restart();
+        simulation.nodes().forEach(n => {
+            n.fx = null;
+            n.fy = null;
+        });
+        simulation.alphaTarget(0.05).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -284,32 +279,46 @@ const updateForceGraph = (tree: DSINode) => {
         DSINode
     >('circle');
 
-    const selectionRootNode = nodeSelection.data().find(n => !n.parent)!;
+    const selectionRootNode = nodeSelection
+        .data()
+        .find(n => getEntityId(n.data) === tree.id)!;
 
     // map coordinates from previous simulations to new data
-    const newRoot = mapNodeSelectionData(selectionRootNode, tree);
+    // mutates tree
+    mapNodeSelectionData(selectionRootNode, tree);
 
     const linkSelection = select('g.line-container').selectAll<
         SVGLineElement,
         SimulationLinkDatum<DSINode>
     >('line');
 
-    const simulationNodes = newRoot.descendants();
-
     // build new force links (can't reuse old)
     // map to ensure that simulationNodes and their latest locations are recomputed at initialization time
-    const forceLinks = buildForceLinks(newRoot.links()).links(
-        newRoot.links().map(l => ({
+    const forceLinks = buildForceLinks(tree.links()).links(
+        tree.links().map(l => ({
             source: makeNodeKey(l.source),
             target: makeNodeKey(l.target),
         }))
     );
 
-    // bind new data to dom selection so tickHandler can read it
-    updateNodeSelection(nodeSelection, simulationNodes);
+    //fix coordinates of unselected nodes
+    tree.eachAfter(n => {
+        if (n.children && n.children.find(n => n.selected)) {
+            n.children.forEach(n => {
+                n.fx = null;
+                n.fy = null;
+            });
+        } else {
+            n.fx = n.x;
+            n.fy = n.y;
+        }
+    });
+
+    // join new data to dom selection so tickHandler can read it
+    updateNodeSelection(nodeSelection, tree.descendants());
 
     //initialize simulation (mutate forceLinks)
-    const simulation = buildUpdateSimulation(simulationNodes, forceLinks);
+    const simulation = buildSimulation(tree.descendants(), forceLinks);
 
     registerDragHandler(
         selectAll<SVGCircleElement, DSINode>('circle'),
@@ -317,7 +326,7 @@ const updateForceGraph = (tree: DSINode) => {
     );
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
-    updateLinkData(linkSelection, forceLinks.links());
+    updateLinkSelection(linkSelection, forceLinks.links());
 
     registerTickHandler(
         simulation,
@@ -334,12 +343,9 @@ const buildForceGraph = (
     width: number,
     height: number
 ) => {
-    const links = tree.links();
-    const nodes = tree.descendants();
+    const forceLinks = buildForceLinks(tree.links());
 
-    const forceLinks = buildForceLinks(links);
-
-    const simulation = buildSimulation(nodes, forceLinks);
+    const simulation = buildSimulation(tree.descendants(), forceLinks);
 
     const svg = select(`#${selector}`)
         .append('svg')
@@ -364,7 +370,7 @@ const buildForceGraph = (
         .selectAll<SVGCircleElement, never>('circle')
         .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
         .join('circle')
-        .attr('fill', d => colorScale(d.type))
+        .attr('fill', d => colorScale(d.data.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
         .call(registerToolTip)
@@ -393,7 +399,7 @@ const drawLegend = (h: number, w: number) => {
 
     svg.selectAll<BaseType, string>('g.legend')
         .append('text')
-        .text((d: string) => capitalize(d))
+        .text((d: string) => d && capitalize(d))
         .attr('transform', `translate(12, 5)`);
 };
 

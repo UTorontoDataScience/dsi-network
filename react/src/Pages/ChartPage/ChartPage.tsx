@@ -131,7 +131,7 @@ const ChartPage: React.FC = () => {
                                 <FormControl fullWidth>
                                     <InputLabel>Set Root</InputLabel>
                                     <Select
-                                        onChange={e =>
+                                        onChange={e => {
                                             setRoot(
                                                 (model || []).find(
                                                     m =>
@@ -139,8 +139,10 @@ const ChartPage: React.FC = () => {
                                                         getEntityId(m) ===
                                                             e.target.value
                                                 )
-                                            )
-                                        }
+                                            );
+                                            setSelected([]);
+                                            setDetailSelection([]);
+                                        }}
                                         value={root ? getEntityId(root) : ''}
                                     >
                                         {(model || [])
@@ -165,6 +167,8 @@ const ChartPage: React.FC = () => {
                             <Grid item>
                                 <FormControl fullWidth>
                                     <Autocomplete
+                                        key={tree?.id}
+                                        autoComplete
                                         clearOnEscape
                                         getOptionLabel={m => m.name}
                                         isOptionEqualToValue={(option, value) =>

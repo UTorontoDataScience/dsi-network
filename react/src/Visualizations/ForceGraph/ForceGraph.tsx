@@ -50,7 +50,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
             if (tree.descendants().length === simulation?.nodes().length) {
                 setSimulation(updateForceGraph(tree));
             } else {
-                select('svg').remove();
+                selectAll('svg').remove();
                 setSimulation(buildForceGraph(tree, 'test', 1000, 700));
             }
         }
@@ -348,11 +348,26 @@ const buildForceGraph = (
 
     const simulation = buildSimulation(tree.descendants(), forceLinks);
 
+    const legendWidth = 120;
+
     const svg = select(`#${selector}`)
         .append('svg')
-        .attr('width', width)
+        .attr('class', 'main')
+        .attr('width', width - legendWidth)
         .attr('height', height)
-        .attr('viewBox', [-width / 2, -height / 2, width, height]);
+        .attr('viewBox', [
+            (-width + legendWidth) / 2,
+            -height / 2,
+            width - legendWidth,
+            height,
+        ]);
+
+    select(`#${selector}`)
+        .append('svg')
+        .attr('class', 'legend-container')
+        .attr('width', 80)
+        .attr('height', height)
+        .attr('viewBox', [-40, -height / 2, 80, height]);
 
     const linkSelection = svg
         .append('g')
@@ -390,29 +405,29 @@ const buildForceGraph = (
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
-    drawLegend(height, width);
+    drawLegend('.legend-container', legendWidth);
 
     appendToolTip();
 
     return simulation;
 };
 
-const drawLegend = (h: number, w: number) => {
-    const svg = select('svg');
+const drawLegend = (selector: string, w: number) => {
+    const svg = select(selector);
 
     svg.selectAll('g.legend')
         .data(colorScale.domain())
         .join('g')
-        .attr('transform', (_, i) => `translate(${w / 2 - 80}, ${i * 20})`)
+        .attr('transform', (_, i) => `translate(-${w / 2 - 25}, ${i * 20})`)
         .attr('class', 'legend')
         .append('circle')
-        .attr('r', 5)
+        .attr('r', 3)
         .attr('fill', d => colorScale(d));
 
     svg.selectAll<BaseType, string>('g.legend')
         .append('text')
         .text((d: string) => d && capitalize(d))
-        .attr('transform', `translate(12, 5)`);
+        .attr('transform', `translate(8, 5)`);
 };
 
 const appendToolTip = () => {

@@ -122,7 +122,7 @@ const ChartPage: React.FC = () => {
             )}
             {activeTab === 0 && (
                 <Grid container direction="row" item>
-                    <Grid item xs={9}>
+                    <Grid container justifyContent="flex-end" item xs={9}>
                         {tree && <ForceGraph tree={tree} />}
                     </Grid>
                     <Grid item xs={3} container direction="column" spacing={5}>

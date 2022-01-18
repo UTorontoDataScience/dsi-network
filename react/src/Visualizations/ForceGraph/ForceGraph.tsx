@@ -4,6 +4,7 @@ import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import { scaleOrdinal, scaleLinear } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
+import { D3ZoomEvent, zoom } from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 import {
     forceCenter,
@@ -49,7 +50,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
             if (tree.descendants().length === simulation?.nodes().length) {
                 setSimulation(updateForceGraph(tree));
             } else {
-                select('svg').remove();
+                selectAll('svg').remove();
                 setSimulation(buildForceGraph(tree, 'test', 1000, 700));
             }
         }
@@ -82,7 +83,9 @@ const colorScale = scaleOrdinal(
 interface DSINode
     extends Record<string, any>,
         HierarchyNode<ModelEntity>,
-        SimulationNodeDatum {}
+        SimulationNodeDatum {
+    selected?: boolean;
+}
 
 /**
  *  Unique key used to identify nodes for d3.join process and mapping simulation links to source/target
@@ -129,29 +132,34 @@ const updateNodeSelection = (
 ) => {
     const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
 
-    bound.join(
-        enter => {
-            const enterSelection = enter
-                .append('circle')
-                .attr('fill', d => colorScale(d.data.type))
-                .attr('stroke', d => (d.children ? null : '#fff'))
-                .call(registerToolTip);
+    bound
+        .join(
+            enter => {
+                const enterSelection = enter
+                    .append('circle')
+                    .attr('fill', d => colorScale(d.data.type))
+                    .attr('stroke', d => (d.children ? null : '#fff'))
+                    .call(registerToolTip);
 
-            enterSelection
-                .transition()
-                .attr('r', d => (d.selected ? 12 : 5))
-                .attr('fill', function (d) {
-                    return d.selected ? '#e7298a' : select(this).attr('fill');
-                })
-                .duration(1500);
+                enterSelection
+                    .transition()
+                    .attr('r', d => (d.selected ? 7 : 5))
+                    .attr('fill', function (d) {
+                        return d.selected
+                            ? '#e7298a'
+                            : select(this).attr('fill');
+                    })
+                    .duration(1500);
 
-            return enterSelection;
-        },
-        update => update,
-        exit => {
-            exit.transition().attr('r', 0).duration(1500).remove();
-        }
-    );
+                return enterSelection;
+            },
+            update => update,
+            exit => {
+                exit.transition().attr('r', 0).duration(1500).remove();
+            }
+        )
+        //ensure selected are in "front"
+        .sort(a => (a.selected ? 1 : -1));
 
     return bound.enter().data();
 };
@@ -347,60 +355,86 @@ const buildForceGraph = (
 
     const simulation = buildSimulation(tree.descendants(), forceLinks);
 
+    const legendWidth = 120;
+
     const svg = select(`#${selector}`)
         .append('svg')
-        .attr('width', width)
+        .attr('class', 'main')
+        .attr('width', width - legendWidth)
         .attr('height', height)
-        .attr('viewBox', [-width / 2, -height / 2, width, height]);
+        .attr('viewBox', [
+            (-width + legendWidth) / 2,
+            -height / 2,
+            width - legendWidth,
+            height,
+        ]);
+
+    select(`#${selector}`)
+        .append('svg')
+        .attr('class', 'legend-container')
+        .attr('width', 80)
+        .attr('height', height)
+        .attr('viewBox', [-40, -height / 2, 80, height]);
 
     const linkSelection = svg
         .append('g')
         .attr('stroke-opacity', 0.6)
-        .attr('class', 'line-container')
+        .attr('class', 'container line-container')
         .selectAll<SVGLineElement, never>('line')
         .data(forceLinks.links())
+        .attr('class', 'chart')
         .join('line')
         .attr('stroke', 'black');
 
     const nodeSelection = svg
         .append('g')
-        .attr('class', 'circle-container')
+        .attr('class', 'container circle-container')
         .attr('stroke', '#000')
         .attr('stroke-width', 1.5)
         .selectAll<SVGCircleElement, never>('circle')
         .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
         .join('circle')
+        .attr('class', 'chart')
         .attr('fill', d => colorScale(d.data.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
         .call(registerToolTip)
         .call(registerDragHandler, simulation);
 
+    const zoomed = ({ transform }: D3ZoomEvent<SVGCircleElement, DSINode>) => {
+        svg.selectAll('.container').attr('transform', transform as any);
+    };
+
+    /* will listen on all nodes, */
+    const zoomFn = zoom<any, any>().scaleExtent([0.5, 2]).on('zoom', zoomed);
+
+    svg.call(zoomFn);
+
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
-    drawLegend(height, width);
+    drawLegend('.legend-container', legendWidth);
 
     appendToolTip();
 
     return simulation;
 };
 
-const drawLegend = (h: number, w: number) => {
-    const svg = select('svg');
+const drawLegend = (selector: string, w: number) => {
+    const svg = select(selector);
 
     svg.selectAll('g.legend')
         .data(colorScale.domain())
         .join('g')
-        .attr('transform', (_, i) => `translate(${w / 2 - 80}, ${i * 20})`)
+        .attr('transform', (_, i) => `translate(-${w / 2 - 25}, ${i * 20})`)
         .attr('class', 'legend')
         .append('circle')
-        .attr('r', 5)
+        .attr('r', 3)
         .attr('fill', d => colorScale(d));
 
     svg.selectAll<BaseType, string>('g.legend')
         .append('text')
         .text((d: string) => d && capitalize(d))
-        .attr('transform', `translate(12, 5)`);
+        .attr('transform', `translate(8, 5)`);
 };
 
 const appendToolTip = () => {

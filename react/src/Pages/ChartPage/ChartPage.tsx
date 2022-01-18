@@ -81,7 +81,10 @@ const ChartPage: React.FC = () => {
             return tree
                 ?.descendants()
                 .filter(uniqueBy(d => d.data.name))
-                .map(v => v.data);
+                .map(v => v.data)
+                .sort((a, b) =>
+                    a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
+                );
         } else {
             return [];
         }
@@ -119,7 +122,7 @@ const ChartPage: React.FC = () => {
             )}
             {activeTab === 0 && (
                 <Grid container direction="row" item>
-                    <Grid item xs={9}>
+                    <Grid container justifyContent="flex-end" item xs={9}>
                         {tree && <ForceGraph tree={tree} />}
                     </Grid>
                     <Grid item xs={3} container direction="column" spacing={5}>
@@ -128,7 +131,7 @@ const ChartPage: React.FC = () => {
                                 <FormControl fullWidth>
                                     <InputLabel>Set Root</InputLabel>
                                     <Select
-                                        onChange={e =>
+                                        onChange={e => {
                                             setRoot(
                                                 (model || []).find(
                                                     m =>
@@ -136,8 +139,10 @@ const ChartPage: React.FC = () => {
                                                         getEntityId(m) ===
                                                             e.target.value
                                                 )
-                                            )
-                                        }
+                                            );
+                                            setSelected([]);
+                                            setDetailSelection([]);
+                                        }}
                                         value={root ? getEntityId(root) : ''}
                                     >
                                         {(model || [])
@@ -147,6 +152,7 @@ const ChartPage: React.FC = () => {
                                                     'institution',
                                                 ].includes(m.type)
                                             )
+                                            .sort()
                                             .map(m => (
                                                 <MenuItem
                                                     key={m.name}
@@ -161,6 +167,8 @@ const ChartPage: React.FC = () => {
                             <Grid item>
                                 <FormControl fullWidth>
                                     <Autocomplete
+                                        key={tree?.id}
+                                        autoComplete
                                         clearOnEscape
                                         getOptionLabel={m => m.name}
                                         isOptionEqualToValue={(option, value) =>

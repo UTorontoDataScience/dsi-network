@@ -81,7 +81,10 @@ const ChartPage: React.FC = () => {
             return tree
                 ?.descendants()
                 .filter(uniqueBy(d => d.data.name))
-                .map(v => v.data);
+                .map(v => v.data)
+                .sort((a, b) =>
+                    a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
+                );
         } else {
             return [];
         }
@@ -147,6 +150,7 @@ const ChartPage: React.FC = () => {
                                                     'institution',
                                                 ].includes(m.type)
                                             )
+                                            .sort()
                                             .map(m => (
                                                 <MenuItem
                                                     key={m.name}

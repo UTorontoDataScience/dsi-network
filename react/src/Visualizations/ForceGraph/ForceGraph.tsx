@@ -4,6 +4,7 @@ import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import { scaleOrdinal, scaleLinear } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
+import { D3ZoomEvent, zoom } from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 import {
     forceCenter,
@@ -356,25 +357,36 @@ const buildForceGraph = (
     const linkSelection = svg
         .append('g')
         .attr('stroke-opacity', 0.6)
-        .attr('class', 'line-container')
+        .attr('class', 'container line-container')
         .selectAll<SVGLineElement, never>('line')
         .data(forceLinks.links())
+        .attr('class', 'chart')
         .join('line')
         .attr('stroke', 'black');
 
     const nodeSelection = svg
         .append('g')
-        .attr('class', 'circle-container')
+        .attr('class', 'container circle-container')
         .attr('stroke', '#000')
         .attr('stroke-width', 1.5)
         .selectAll<SVGCircleElement, never>('circle')
         .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
         .join('circle')
+        .attr('class', 'chart')
         .attr('fill', d => colorScale(d.data.type))
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
         .call(registerToolTip)
         .call(registerDragHandler, simulation);
+
+    const zoomed = ({ transform }: D3ZoomEvent<SVGCircleElement, DSINode>) => {
+        svg.selectAll('.container').attr('transform', transform as any);
+    };
+
+    /* will listen on all nodes, */
+    const zoomFn = zoom<any, any>().scaleExtent([0.5, 2]).on('zoom', zoomed);
+
+    svg.call(zoomFn);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 

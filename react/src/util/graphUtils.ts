@@ -66,7 +66,7 @@ export const mapTree = <T extends object, R extends HierarchyNode<T>>(
 ): R => {
     /* d3 doesn't export node constructor so we have to clone */
     let mappedNode = fn(node);
-    const clone = Object.create(node);
+    const clone = Object.create(Object.getPrototypeOf(node));
     mappedNode = Object.assign(clone, mappedNode);
     if (node.children) {
         mappedNode.children = node.children.map(n => {

@@ -288,8 +288,7 @@ const registerClickZoom = (
     svg: Selection<SVGSVGElement, unknown, any, any>,
     w: number
 ) => {
-    const zoomHandler = ({ transform }: D3ZoomEvent<SVGSVGElement, unknown>) =>
-        svg.selectAll('.container').attr('transform', transform.toString());
+    const zoomHandler = makeDefaultZoomHandler(svg);
 
     const nodeZoom = zoom<SVGSVGElement, DSINode>()
         .scaleExtent([0.5, 40])
@@ -329,6 +328,18 @@ const registerClickZoom = (
 
     selection.on('click', clickZoom);
 };
+
+const makeDefaultZoomHandler =
+    (svg: Selection<SVGSVGElement, unknown, HTMLElement, any>) =>
+    ({ transform }: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        svg.selectAll('.container').attr('transform', transform.toString());
+        svg.select('g.zoom-indicator')
+            .selectAll<SVGTextElement, number>('text')
+            .data([transform.k || 1])
+            .join('text')
+            .text(d => `Zoom: ${Math.floor(d * 100).toString()}%`)
+            .attr('transform', `translate(2,15)`);
+    };
 
 const updateForceGraph = (tree: DSINode) => {
     const nodeSelection = select('g.circle-container').selectAll<
@@ -404,26 +415,12 @@ const buildForceGraph = (
 
     const simulation = buildSimulation(tree.descendants(), forceLinks);
 
-    const legendWidth = 120;
-
-    /* main svg */
-
-    const mainWidth = width - legendWidth;
-
     const svg = select(`#${selector}`)
         .append('svg')
         .attr('class', 'main')
-        .attr('width', width - legendWidth)
+        .attr('width', width)
         .attr('height', height)
-        .attr('viewBox', [-mainWidth / 2, -height / 2, mainWidth, height]);
-
-    /* legend */
-    select(`#${selector}`)
-        .append('svg')
-        .attr('class', 'legend-container')
-        .attr('width', 80)
-        .attr('height', height)
-        .attr('viewBox', [-40, -height / 2, 80, height]);
+        .attr('viewBox', [-width / 2, -height / 2, width, height]);
 
     const linkSelection = svg
         .append('g')
@@ -435,10 +432,7 @@ const buildForceGraph = (
         .join('line')
         .attr('stroke', 'black');
 
-    const globalZoomHandler = ({
-        transform,
-    }: D3ZoomEvent<SVGSVGElement, unknown>) =>
-        svg.selectAll('.container').attr('transform', transform.toString());
+    const globalZoomHandler = makeDefaultZoomHandler(svg);
 
     /* 'global' zoom behavior, will listen on SVG and enlarge container on mouse wheel */
     const globalZoom = zoom<SVGSVGElement, unknown>()
@@ -461,30 +455,56 @@ const buildForceGraph = (
         .attr('r', 5)
         .call(registerToolTip)
         .call(registerDragHandler, simulation)
-        .call(registerClickZoom, svg, mainWidth);
+        .call(registerClickZoom, svg, width);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
-    drawLegend('.legend-container', legendWidth);
+    const zoomIndicator = svg
+        .append('g')
+        .attr('class', 'control zoom-indicator')
+        .attr('transform', `translate(${width / 2 - 100}, ${-height / 2})`);
+
+    zoomIndicator
+        .append('rect')
+        .attr('width', 100)
+        .attr('height', 17)
+        .attr('fill', 'white');
+
+    zoomIndicator
+        .append('text')
+        .text('Zoom: 100%')
+        .attr('transform', `translate(2, 15)`);
+
+    svg.append('g')
+        .attr('transform', `translate(${width / 2 - 100}, ${height / 2 - 100})`)
+        .attr('class', 'control legend-container')
+        .append('rect')
+        .attr('width', '100')
+        .attr('height', '100')
+        .attr('fill', 'white');
+
+    drawLegend('.legend-container');
 
     appendToolTip();
 
     return simulation;
 };
 
-const drawLegend = (selector: string, w: number) => {
-    const svg = select(selector);
+const drawLegend = (selector: string) => {
+    const container = select(selector);
 
-    svg.selectAll('g.legend')
+    container
+        .selectAll('g.legend')
         .data(colorScale.domain())
         .join('g')
-        .attr('transform', (_, i) => `translate(-${w / 2 - 25}, ${i * 20})`)
+        .attr('transform', (_, i) => `translate(8, ${(i + 1) * 15})`)
         .attr('class', 'legend')
         .append('circle')
         .attr('r', 3)
         .attr('fill', d => colorScale(d));
 
-    svg.selectAll<BaseType, string>('g.legend')
+    container
+        .selectAll<BaseType, string>('g.legend')
         .append('text')
         .text((d: string) => d && capitalize(d))
         .attr('transform', `translate(8, 5)`);

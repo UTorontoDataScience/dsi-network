@@ -7,6 +7,7 @@ import {
     Grid,
     InputLabel,
     MenuItem,
+    Paper,
     Select,
     Tab,
     Tabs,
@@ -99,7 +100,7 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     return (
-        <Grid container direction="column">
+        <Grid container direction="column" spacing={3}>
             <Grid item>
                 <AppBar sx={{ margin: 3 }} position="static">
                     <Box padding={2}>
@@ -121,16 +122,19 @@ const ChartPage: React.FC = () => {
                 </Grid>
             )}
             {activeTab === 0 && (
-                <Grid container direction="row" item>
+                <Grid container direction="row" item spacing={3}>
                     <Grid container justifyContent="flex-end" item xs={9}>
-                        {tree && <ForceGraph tree={tree} />}
+                        <Paper variant="outlined">
+                            {tree && <ForceGraph tree={tree} />}
+                        </Paper>
                     </Grid>
                     <Grid item xs={3} container direction="column" spacing={5}>
                         <Grid container direction="column" item spacing={2}>
                             <Grid item>
                                 <FormControl fullWidth>
-                                    <InputLabel>Set Root</InputLabel>
+                                    <InputLabel htmlFor="root">Root</InputLabel>
                                     <Select
+                                        id="root"
                                         onChange={e => {
                                             setRoot(
                                                 (model || []).find(

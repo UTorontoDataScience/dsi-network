@@ -1,10 +1,12 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
-import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { Selection, BaseType, select, selectAll } from 'd3-selection';
-import { scaleOrdinal, scaleLinear } from 'd3-scale';
+import { max } from 'd3-array';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
-import { D3ZoomEvent, zoom } from 'd3-zoom';
+import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
+import { scaleOrdinal, scaleLinear } from 'd3-scale';
+import { Selection, BaseType, select, selectAll } from 'd3-selection';
+import { Transition } from 'd3-transition';
+import { D3ZoomEvent, zoom, zoomIdentity } from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 import {
     forceCenter,
@@ -281,6 +283,53 @@ const registerDragHandler = (
     return handler(selection);
 };
 
+const registerClickZoom = (
+    selection: DSINodeSelection,
+    svg: Selection<SVGSVGElement, unknown, any, any>,
+    w: number
+) => {
+    const zoomHandler = ({ transform }: D3ZoomEvent<SVGSVGElement, unknown>) =>
+        svg.selectAll('.container').attr('transform', transform.toString());
+
+    const nodeZoom = zoom<SVGSVGElement, DSINode>()
+        .scaleExtent([0.5, 40])
+        .on('zoom', zoomHandler);
+
+    const clickZoom = (event: MouseEvent, node: DSINode) => {
+        event.stopPropagation();
+
+        let zoomNode = node;
+        while (zoomNode.descendants().length <= 5 && zoomNode.parent) {
+            zoomNode = zoomNode.parent;
+        }
+
+        (
+            svg.transition().duration(750) as Transition<
+                SVGSVGElement,
+                DSINode,
+                any,
+                unknown
+            >
+        ).call(
+            nodeZoom.transform,
+            zoomIdentity
+                .translate(0, 0)
+                .scale(getScale(zoomNode, w))
+                .translate(-zoomNode.x!, -zoomNode.y!)
+        );
+    };
+
+    const getScale = (node: DSINode, w: number) => {
+        const radius = max(node.descendants(), n =>
+            Math.sqrt((node.x! - n.x!) ** 2 + (node.y! - n.y!) ** 2)
+        )!;
+
+        return w / (radius * 3);
+    };
+
+    selection.on('click', clickZoom);
+};
+
 const updateForceGraph = (tree: DSINode) => {
     const nodeSelection = select('g.circle-container').selectAll<
         SVGCircleElement,
@@ -357,18 +406,18 @@ const buildForceGraph = (
 
     const legendWidth = 120;
 
+    /* main svg */
+
+    const mainWidth = width - legendWidth;
+
     const svg = select(`#${selector}`)
         .append('svg')
         .attr('class', 'main')
         .attr('width', width - legendWidth)
         .attr('height', height)
-        .attr('viewBox', [
-            (-width + legendWidth) / 2,
-            -height / 2,
-            width - legendWidth,
-            height,
-        ]);
+        .attr('viewBox', [-mainWidth / 2, -height / 2, mainWidth, height]);
 
+    /* legend */
     select(`#${selector}`)
         .append('svg')
         .attr('class', 'legend-container')
@@ -386,6 +435,18 @@ const buildForceGraph = (
         .join('line')
         .attr('stroke', 'black');
 
+    const globalZoomHandler = ({
+        transform,
+    }: D3ZoomEvent<SVGSVGElement, unknown>) =>
+        svg.selectAll('.container').attr('transform', transform.toString());
+
+    /* 'global' zoom behavior, will listen on SVG and enlarge container on mouse wheel */
+    const globalZoom = zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.5, 40])
+        .on('zoom', globalZoomHandler);
+
+    svg.call(globalZoom);
+
     const nodeSelection = svg
         .append('g')
         .attr('class', 'container circle-container')
@@ -399,16 +460,8 @@ const buildForceGraph = (
         .attr('stroke', d => (d.children ? null : '#fff'))
         .attr('r', 5)
         .call(registerToolTip)
-        .call(registerDragHandler, simulation);
-
-    const zoomed = ({ transform }: D3ZoomEvent<SVGCircleElement, DSINode>) => {
-        svg.selectAll('.container').attr('transform', transform as any);
-    };
-
-    /* will listen on all nodes, */
-    const zoomFn = zoom<any, any>().scaleExtent([0.5, 2]).on('zoom', zoomed);
-
-    svg.call(zoomFn);
+        .call(registerDragHandler, simulation)
+        .call(registerClickZoom, svg, mainWidth);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 

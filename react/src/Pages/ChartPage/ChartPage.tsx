@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    AppBar,
     Autocomplete,
-    Box,
     FormControl,
     Grid,
     InputLabel,
@@ -101,15 +99,6 @@ const ChartPage: React.FC = () => {
 
     return (
         <Grid container direction="column" spacing={3}>
-            <Grid item>
-                <AppBar sx={{ margin: 3 }} position="static">
-                    <Box padding={2}>
-                        <Typography align="center" variant="h5">
-                            DSI Network App
-                        </Typography>
-                    </Box>
-                </AppBar>
-            </Grid>
             <Grid item container justifyContent="center">
                 <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
                     <Tab label="Tree View" />
@@ -162,7 +151,9 @@ const ChartPage: React.FC = () => {
                                                     key={m.name}
                                                     value={getEntityId(m)}
                                                 >
-                                                    {m.name}
+                                                    <Typography>
+                                                        {m.name}
+                                                    </Typography>
                                                 </MenuItem>
                                             ))}
                                     </Select>

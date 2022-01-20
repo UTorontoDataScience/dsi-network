@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { useTheme, Theme } from '@mui/material';
 import { max } from 'd3-array';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
@@ -45,15 +46,17 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
     // we need to manually stop the simulation to prevent memory leaks from the tick event
     const [simulation, setSimulation] = useState<DSISimulation>();
 
+    const theme = useTheme();
+
     useEffect(() => {
         if (tree && chartRendered) {
             // crude check for now, soon we'll want a proper transition
             simulation!.stop();
             if (tree.descendants().length === simulation?.nodes().length) {
-                setSimulation(updateForceGraph(tree));
+                setSimulation(updateForceGraph(tree, theme));
             } else {
                 selectAll('svg').remove();
-                setSimulation(buildForceGraph(tree, 'test', 1000, 700));
+                setSimulation(buildForceGraph(tree, 'test', 1000, 700, theme));
             }
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps  */
@@ -61,7 +64,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
 
     useLayoutEffect(() => {
         if (tree && !chartRendered) {
-            setSimulation(buildForceGraph(tree, 'test', 1000, 700));
+            setSimulation(buildForceGraph(tree, 'test', 1000, 700, theme));
             setChartRendered(true);
         }
     }, [chartRendered, tree]);
@@ -130,7 +133,8 @@ const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
  */
 const updateNodeSelection = (
     nodeSelection: DSINodeSelection,
-    nodes: DSINode[]
+    nodes: DSINode[],
+    theme: Theme
 ) => {
     const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
 
@@ -140,7 +144,9 @@ const updateNodeSelection = (
                 const enterSelection = enter
                     .append('circle')
                     .attr('fill', d => colorScale(d.data.type))
-                    .attr('stroke', d => (d.children ? null : '#fff'))
+                    .attr('stroke', d =>
+                        d.children ? theme.palette.text.primary : null
+                    )
                     .call(registerToolTip);
 
                 enterSelection
@@ -173,7 +179,8 @@ const updateLinkSelection = (
         any,
         unknown
     >,
-    links: SimulationLinkDatum<DSINode>[]
+    links: SimulationLinkDatum<DSINode>[],
+    theme: Theme
 ) => {
     return linkSelection
         .data(links, makeLinkKey)
@@ -181,7 +188,7 @@ const updateLinkSelection = (
             enter.transition().duration(1000);
             return enter.selection();
         })
-        .attr('stroke', 'black');
+        .attr('stroke', theme.palette.text.primary);
 };
 
 const registerTickHandler = (
@@ -341,7 +348,7 @@ const makeDefaultZoomHandler =
             .attr('transform', `translate(2,15)`);
     };
 
-const updateForceGraph = (tree: DSINode) => {
+const updateForceGraph = (tree: DSINode, theme: Theme) => {
     const nodeSelection = select('g.circle-container').selectAll<
         SVGCircleElement,
         DSINode
@@ -383,7 +390,7 @@ const updateForceGraph = (tree: DSINode) => {
     });
 
     // join new data to dom selection so tickHandler can read it
-    updateNodeSelection(nodeSelection, tree.descendants());
+    updateNodeSelection(nodeSelection, tree.descendants(), theme);
 
     //initialize simulation (mutate forceLinks)
     const simulation = buildSimulation(tree.descendants(), forceLinks);
@@ -394,7 +401,7 @@ const updateForceGraph = (tree: DSINode) => {
     );
 
     // ensure that link selection has recalculated coordinates bound before registering tick callback
-    updateLinkSelection(linkSelection, forceLinks.links());
+    updateLinkSelection(linkSelection, forceLinks.links(), theme);
 
     registerTickHandler(
         simulation,
@@ -409,7 +416,8 @@ const buildForceGraph = (
     tree: DSINode,
     selector: string,
     width: number,
-    height: number
+    height: number,
+    theme: Theme
 ) => {
     const forceLinks = buildForceLinks(tree.links());
 
@@ -430,7 +438,7 @@ const buildForceGraph = (
         .data(forceLinks.links())
         .attr('class', 'chart')
         .join('line')
-        .attr('stroke', 'black');
+        .attr('stroke', theme.palette.text.primary);
 
     const globalZoomHandler = makeDefaultZoomHandler(svg);
 
@@ -444,14 +452,13 @@ const buildForceGraph = (
     const nodeSelection = svg
         .append('g')
         .attr('class', 'container circle-container')
-        .attr('stroke', '#000')
         .attr('stroke-width', 1.5)
         .selectAll<SVGCircleElement, never>('circle')
         .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
         .join('circle')
         .attr('class', 'chart')
         .attr('fill', d => colorScale(d.data.type))
-        .attr('stroke', d => (d.children ? null : '#fff'))
+        .attr('stroke', d => (d.children ? theme.palette.text.primary : null))
         .attr('r', 5)
         .call(registerToolTip)
         .call(registerDragHandler, simulation)

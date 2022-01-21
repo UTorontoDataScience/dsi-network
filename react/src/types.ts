@@ -1,5 +1,3 @@
-//todo: all need to extend a BaseEntity type that has id, name, type properties
-
 import { HierarchyNode } from 'd3-hierarchy';
 import { EntityType, ModelEntity, Relationship } from './data/model';
 

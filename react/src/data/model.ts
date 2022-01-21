@@ -22,6 +22,7 @@ export type Relationship =
     | 'fellow'
     | 'graduate_student'
     | 'grantee'
+    | 'institution'
     | 'postdoc'
     | 'principal_investigator'
     | 'professor'
@@ -34,7 +35,8 @@ export type Relationship =
 export interface EntityDict {
     campus: Campus[];
     division: Division[];
-    institution: Institution;
+    institution: Institution[];
+    network: Network[];
     person: Person[];
     program: AcademicProgram[];
     unit: Unit[];
@@ -112,6 +114,8 @@ export type Unit = BaseEntity;
 
 export type Institution = BaseEntity;
 
+export type Network = BaseEntity;
+
 export type EntityType = keyof EntityDict;
 
 // people should be limited to these roles already
@@ -122,25 +126,43 @@ const getPersonRelationship = (role: string): Relationship =>
 
 /* mutates program and people entities by adding parent identifiers and splitting people by role */
 const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
-    const UofT: Institution = {
+    const network: Network = {
+        name: 'Data Science Network',
         id: 1,
-        type: 'institution',
-        name: 'University of Toronto',
+        type: 'network',
         ...{ ...initialEntityAttributes },
     };
+
+    const institutions: Institution[] = [
+        ...new Set(people.map(u => u.institution)),
+    ]
+        .filter(Boolean)
+        .map((d, id) => ({
+            name: d,
+            id: id + 1,
+            parentId: 1,
+            parentType: 'network',
+            relationship: 'institution',
+            type: 'institution' as const,
+        }));
+
+    const UofT = institutions.find(i => i.name === 'University of Toronto')!;
 
     const campuses: Campus[] = [...new Set(programs.map(u => u.campus))]
         .filter(Boolean)
         .map((d, id) => ({
             name: d,
             id: id + 1,
-            parentId: 1,
+            parentId: UofT.id,
             parentType: 'institution',
             relationship: 'campus',
             type: 'campus' as const,
         }));
 
-    const divisionMap = groupBy(programs, 'division');
+    const _divisionMap = groupBy(
+        programs.filter(p => !!p.division),
+        'division'
+    );
 
     /* if a division has a campus, associate it, otherwise, associate with uoft generally */
     const divisions = [
@@ -152,15 +174,16 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
             id: i + 1,
             name: d,
             type: 'division' as const,
-            parentId: divisionMap[d]
-                ? campuses.find(c => divisionMap[d][0].campus! === c.name)!.id
+            parentId: _divisionMap[d]
+                ? campuses.find(c => _divisionMap[d][0].campus! === c.name)!.id
                 : UofT.id,
-            parentType: divisionMap[d] ? 'campus' : 'institution',
+            parentType: _divisionMap[d] ? 'campus' : 'institution',
             relationship: 'division',
         }))
         .filter(d => !!d.name && d.parentId && d.name) as Division[];
 
-    const allDivisionMap = groupBy(divisions, 'name');
+    /* has ids */
+    const divisionMap = groupBy(divisions, 'name');
 
     const units = programs
         .filter(uniqueBy('unit'))
@@ -172,51 +195,53 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
         )
         .filter(uniqueBy('department'))
         .filter(d => d.department !== 'Not Applicable')
-        .filter(d => allDivisionMap[d.division])
+        .filter(d => divisionMap[d.division])
         .map((u, i) => ({
             id: i + 1,
             name: u.department,
             type: 'unit' as const,
-            parentId: allDivisionMap[u.division][0].id,
+            parentId: divisionMap[u.division][0].id,
             parentType: 'division',
             relationship: 'unit',
         }))
         .filter(u => !!u.name && u.parentId) as Unit[];
 
-    /* filter out all but PIs and professors and map to departments */
-    const departmentMap = people.reduce<{ [key: string]: [Person] }>(
-        (acc, curr) => {
-            const department = curr.department;
-
-            if (
-                curr.role &&
-                department &&
-                (curr.role.toLowerCase().includes('professor') ||
-                    curr.role.toLowerCase().includes('investigator'))
-            ) {
-                acc[department]
-                    ? acc[department].push(curr)
-                    : (acc[department] = [curr]);
-            }
-
-            return acc;
-        },
-        {}
+    const filteredPeople = people.filter(
+        p =>
+            !!p.role &&
+            (p.role.toLowerCase().includes('professor') ||
+                p.role.toLowerCase().includes('investigator'))
     );
 
-    // people data doesn't typically map to programs (e.g., a major), so we'll attach to units instead
-    // todo: sometimes people are linked directly to a division (e.g., Rotman), so if we can't find a department, link to division instead
-    const linkedPeople = units.flatMap(u => {
-        //add people to department
-        return departmentMap[u.name]
-            ? departmentMap[u.name].map(p => ({
-                  ...p,
-                  parentType: 'unit',
-                  parentId: u.id,
-                  relationship: getPersonRelationship(p.role),
-              }))
-            : [];
-    }) as Person[];
+    const unitMap = groupBy(units, 'name');
+    const institutionMap = groupBy(institutions, 'name');
+
+    const linkedPeople = filteredPeople
+        .map(p => {
+            if (unitMap[p.department]) {
+                return {
+                    ...p,
+                    parentType: 'unit',
+                    parentId: unitMap[p.department][0].id,
+                    relationship: getPersonRelationship(p.role),
+                };
+            } else if (divisionMap[p.division]) {
+                return {
+                    ...p,
+                    parentType: 'division',
+                    parentId: divisionMap[p.division][0].id,
+                    relationship: getPersonRelationship(p.role),
+                };
+            } else if (institutionMap[p.institution]) {
+                return {
+                    ...p,
+                    parentType: 'institution',
+                    parentId: institutionMap[p.institution][0].id,
+                    relationship: getPersonRelationship(p.role),
+                };
+            } else return null;
+        })
+        .filter(Boolean) as Person[];
 
     // units (departments) are parents of programs -- try linking there first, then division
     // each can have only one parent
@@ -251,8 +276,9 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
         ...campuses,
         ...divisions,
         ...filteredPrograms,
+        ...institutions,
         ...linkedPeople,
-        UofT,
+        network,
         ...units,
     ];
 };

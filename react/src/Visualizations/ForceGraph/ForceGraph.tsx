@@ -67,7 +67,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
             setSimulation(buildForceGraph(tree, 'test', 1000, 700, theme));
             setChartRendered(true);
         }
-    }, [chartRendered, tree]);
+    }, [chartRendered, tree, theme]);
 
     return <span id="test" />;
 };

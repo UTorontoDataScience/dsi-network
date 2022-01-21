@@ -10,6 +10,22 @@ export interface BaseEntity {
     relationship: Relationship | null;
 }
 
+export interface Resource extends BaseEntity {
+    acronym: string;
+    institution: string;
+    descirption: string;
+    support_description: string;
+    eligible_to: string;
+    user_fee: string;
+    url: string;
+    division: string;
+    campus: string;
+    stage: string;
+    keywords: string;
+    category: string;
+    available_software: string;
+}
+
 export interface AcademicProgramsDataRaw {
     campus: string;
     division: string;

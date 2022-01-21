@@ -78,6 +78,7 @@ const entityTypes: EntityType[] = [
     'institution',
     'person',
     'program',
+    'resource',
     'unit',
 ];
 
@@ -483,11 +484,11 @@ const buildForceGraph = (
         .attr('transform', `translate(2, 15)`);
 
     svg.append('g')
-        .attr('transform', `translate(${width / 2 - 100}, ${height / 2 - 100})`)
+        .attr('transform', `translate(${width / 2 - 100}, ${height / 2 - 130})`)
         .attr('class', 'control legend-container')
         .append('rect')
         .attr('width', '100')
-        .attr('height', '100')
+        .attr('height', '130')
         .attr('fill', 'white');
 
     drawLegend('.legend-container');

@@ -5,6 +5,7 @@ import {
     PersonDataRaw,
     Person,
     BaseEntity,
+    Resource,
 } from '../types';
 import { getKeys, groupBy, uniqueBy } from '../util/util';
 
@@ -12,6 +13,10 @@ const fetchAcademicProgramsData = async () => {
     return (await (await fetch('academic-programs.json')).json()) as Promise<
         AcademicProgramsDataRaw[]
     >;
+};
+
+const fetchResourceData = async () => {
+    return (await (await fetch('resource.json')).json()) as Promise<Resource[]>;
 };
 
 export type Relationship =
@@ -28,6 +33,7 @@ export type Relationship =
     | 'professor'
     | 'program'
     | 'researcher'
+    | 'resource'
     | 'staff'
     | 'support'
     | 'undergraduate';
@@ -39,6 +45,7 @@ export interface EntityDict {
     network: Network[];
     person: Person[];
     program: AcademicProgram[];
+    resource: Resource[];
     unit: Unit[];
 }
 
@@ -125,7 +132,11 @@ const getPersonRelationship = (role: string): Relationship =>
         : 'principal_investigator';
 
 /* mutates program and people entities by adding parent identifiers and splitting people by role */
-const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
+const linkEntities = (
+    programs: AcademicProgram[],
+    people: Person[],
+    resources: Resource[]
+) => {
     const network: Network = {
         name: 'Data Science Network',
         id: 1,
@@ -272,6 +283,31 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
         })
         .filter(p => !!p && p.parentId) as AcademicProgram[];
 
+    /* for the time being we won't use resource institutions to make top-level entries but will only link to existing */
+    const resource = resources
+        .map((r, i) => {
+            if (divisionMap[r.division]) {
+                return {
+                    ...r,
+                    id: i + 1,
+                    type: 'resource',
+                    parentId: divisionMap[r.division][0].id,
+                    parentType: 'division',
+                    relationship: 'resource',
+                };
+            } else if (institutionMap[r.institution]) {
+                return {
+                    ...r,
+                    id: i + 1,
+                    type: 'resource',
+                    parentId: institutionMap[r.institution][0].id,
+                    parentType: 'institution',
+                    relationship: 'resource',
+                };
+            } else return null;
+        })
+        .filter(Boolean) as Resource[];
+
     return [
         ...campuses,
         ...divisions,
@@ -279,6 +315,7 @@ const linkEntities = (programs: AcademicProgram[], people: Person[]) => {
         ...institutions,
         ...linkedPeople,
         network,
+        ...resource,
         ...units,
     ];
 };
@@ -289,9 +326,10 @@ const getModel = async (): Promise<ModelEntity[]> => {
         .filter(Boolean) as Person[];
 
     const programData = await fetchAcademicProgramsData();
+    const resources = await fetchResourceData();
     const programs = transformPrograms(programData);
 
-    return linkEntities(programs, people);
+    return linkEntities(programs, people, resources);
 };
 
 export type ModelEntity = Unit | Division | Person | AcademicProgram;

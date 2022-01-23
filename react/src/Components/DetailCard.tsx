@@ -1,11 +1,11 @@
 import React from 'react';
 import { capitalize, Card, CardContent, Typography } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
-import { ModelEntity } from '../data/model';
 import {
     AcademicProgram,
     isPeopleNodes,
     isProgramNodes,
+    ModelEntity,
     Person,
 } from '../types';
 

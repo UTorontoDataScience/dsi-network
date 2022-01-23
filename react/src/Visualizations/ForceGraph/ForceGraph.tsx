@@ -1,13 +1,11 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
-import { useTheme, Theme } from '@mui/material';
-import { max } from 'd3-array';
-import { schemeDark2 } from 'd3-scale-chromatic';
+import React, { useEffect, useState } from 'react';
+import { Theme, useTheme } from '@mui/material';
+import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { scaleOrdinal, scaleLinear } from 'd3-scale';
+import { scaleOrdinal } from 'd3-scale';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
-import { Transition } from 'd3-transition';
-import { D3ZoomEvent, zoom, zoomIdentity } from 'd3-zoom';
+import { D3ZoomEvent, zoom, zoomIdentity, zoomTransform } from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 import {
     forceCenter,
@@ -20,7 +18,7 @@ import {
     SimulationLinkDatum,
     SimulationNodeDatum,
 } from 'd3-force';
-import { EntityType, ModelEntity } from '../../data/model';
+import { EntityType, ModelEntity } from '../../types';
 import { capitalize, getEntityId, groupBy } from '../../util';
 
 // for debugging
@@ -39,11 +37,12 @@ export interface SelectedModel {
 }
 interface ForceGraphProps {
     tree: HierarchyNode<ModelEntity>;
+    containerWidth: number;
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
+const ForceGraph: React.FC<ForceGraphProps> = ({ containerWidth, tree }) => {
     const [chartRendered, setChartRendered] = useState(false);
-    // we need to manually stop the simulation to prevent memory leaks from the tick event
+    // we need to manually stop the simulation to prevent memory leaks from the tick event (for now)
     const [simulation, setSimulation] = useState<DSISimulation>();
 
     const theme = useTheme();
@@ -56,20 +55,28 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ tree }) => {
                 setSimulation(updateForceGraph(tree, theme));
             } else {
                 selectAll('svg').remove();
-                setSimulation(buildForceGraph(tree, 'test', 1000, 700, theme));
+                setSimulation(buildForceGraph(tree, 'test', theme));
             }
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps  */
     }, [tree]);
 
-    useLayoutEffect(() => {
-        if (tree && !chartRendered) {
-            setSimulation(buildForceGraph(tree, 'test', 1000, 700, theme));
+    useEffect(() => {
+        if (tree && !chartRendered && containerWidth) {
+            setSimulation(buildForceGraph(tree, 'test', theme));
             setChartRendered(true);
         }
-    }, [chartRendered, tree, theme]);
+    }, [chartRendered, containerWidth, tree, theme]);
 
-    return <span id="test" />;
+    return containerWidth ? (
+        <div
+            style={{
+                width: `${containerWidth}px`,
+                border: `solid thin ${theme.palette.text.secondary}`,
+            }}
+            id="test"
+        />
+    ) : null;
 };
 
 const entityTypes: EntityType[] = [
@@ -83,7 +90,7 @@ const entityTypes: EntityType[] = [
 ];
 
 const colorScale = scaleOrdinal(
-    schemeDark2.filter((_, i) => ![3, 4].includes(i)) //remove red, since that's our highlight color
+    schemeCategory10.filter((_, i) => i !== 3) //remove red, since that's our highlight color
 ).domain(entityTypes);
 
 interface DSINode
@@ -108,21 +115,22 @@ const makeLinkKey = <T extends DSINode>(link: SimulationLinkDatum<T>) => {
     return `${source.data.id}-${source.parent?.id}-${target.selected}-${target.data.id}`;
 };
 
-/* rough scales for now */
-const decayScale = scaleLinear().domain([0, 1000]).range([0.01, 0.9]);
-const distanceScale = scaleLinear().domain([0, 1000]).range([30, 10]);
-
-// todo: add pixel count
-const buildSimulation = (nodes: DSINode[], forceLinks: DSIForceLinks) =>
+const buildSimulation = (
+    nodes: DSINode[],
+    forceLinks: DSIForceLinks,
+    w: number
+) =>
     forceSimulation<DSINode>(nodes)
+        .force('d', forceLinks.distance(w / 50).strength(1))
         .force(
-            'd',
-            forceLinks.distance(distanceScale(nodes.length)).strength(1)
+            'charge',
+            forceManyBody()
+                .strength(-25)
+                .distanceMax(w / 4)
         )
-        .force('charge', forceManyBody().strength(-9))
         .force('collision', forceCollide().radius(6))
         .force('center', forceCenter())
-        .velocityDecay(decayScale(nodes.length));
+        .velocityDecay(0.4);
 
 const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
     forceLink<DSINode, SimulationLinkDatum<DSINode>>(links).id(model =>
@@ -185,10 +193,7 @@ const updateLinkSelection = (
 ) => {
     return linkSelection
         .data(links, makeLinkKey)
-        .join('line', enter => {
-            enter.transition().duration(1000);
-            return enter.selection();
-        })
+        .join('line')
         .attr('stroke', theme.palette.text.primary);
 };
 
@@ -293,45 +298,26 @@ const registerDragHandler = (
 
 const registerClickZoom = (
     selection: DSINodeSelection,
-    svg: Selection<SVGSVGElement, unknown, any, any>,
-    w: number
+    svg: Selection<SVGSVGElement, unknown, any, any>
 ) => {
     const zoomHandler = makeDefaultZoomHandler(svg);
 
-    const nodeZoom = zoom<SVGSVGElement, DSINode>()
+    const nodeZoom = zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.5, 40])
         .on('zoom', zoomHandler);
 
     const clickZoom = (event: MouseEvent, node: DSINode) => {
         event.stopPropagation();
 
-        let zoomNode = node;
-        while (zoomNode.descendants().length <= 5 && zoomNode.parent) {
-            zoomNode = zoomNode.parent;
-        }
-
-        (
-            svg.transition().duration(750) as Transition<
-                SVGSVGElement,
-                DSINode,
-                any,
-                unknown
-            >
-        ).call(
-            nodeZoom.transform,
-            zoomIdentity
-                .translate(0, 0)
-                .scale(getScale(zoomNode, w))
-                .translate(-zoomNode.x!, -zoomNode.y!)
-        );
-    };
-
-    const getScale = (node: DSINode, w: number) => {
-        const radius = max(node.descendants(), n =>
-            Math.sqrt((node.x! - n.x!) ** 2 + (node.y! - n.y!) ** 2)
-        )!;
-
-        return w / (radius * 3);
+        svg.transition()
+            .duration(750)
+            .call(
+                nodeZoom.transform,
+                zoomIdentity
+                    .translate(0, 0)
+                    .scale(7)
+                    .translate(-node.x!, -node.y!)
+            );
     };
 
     selection.on('click', clickZoom);
@@ -394,7 +380,7 @@ const updateForceGraph = (tree: DSINode, theme: Theme) => {
     updateNodeSelection(nodeSelection, tree.descendants(), theme);
 
     //initialize simulation (mutate forceLinks)
-    const simulation = buildSimulation(tree.descendants(), forceLinks);
+    const simulation = buildSimulation(tree.descendants(), forceLinks, 1000);
 
     registerDragHandler(
         selectAll<SVGCircleElement, DSINode>('circle'),
@@ -413,23 +399,18 @@ const updateForceGraph = (tree: DSINode, theme: Theme) => {
     return simulation;
 };
 
-const buildForceGraph = (
-    tree: DSINode,
-    selector: string,
-    width: number,
-    height: number,
-    theme: Theme
-) => {
+const buildForceGraph = (tree: DSINode, selector: string, theme: Theme) => {
+    const w = 1000;
+    const h = 1000;
+
     const forceLinks = buildForceLinks(tree.links());
 
-    const simulation = buildSimulation(tree.descendants(), forceLinks);
+    const simulation = buildSimulation(tree.descendants(), forceLinks, w);
 
     const svg = select(`#${selector}`)
         .append('svg')
         .attr('class', 'main')
-        .attr('width', width)
-        .attr('height', height)
-        .attr('viewBox', [-width / 2, -height / 2, width, height]);
+        .attr('viewBox', [-w / 2, -h / 2, w, h]);
 
     const linkSelection = svg
         .append('g')
@@ -443,12 +424,24 @@ const buildForceGraph = (
 
     const globalZoomHandler = makeDefaultZoomHandler(svg);
 
-    /* 'global' zoom behavior, will listen on SVG and enlarge container on mouse wheel */
+    /* 'global' zoom behavior, will listen on SVG and adjust scale on mouse wheel */
     const globalZoom = zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.5, 40])
         .on('zoom', globalZoomHandler);
 
     svg.call(globalZoom);
+
+    svg.on('click', function () {
+        const currentZoom = zoomTransform(select(this).node()!).k;
+        if (currentZoom > 1) {
+            svg.transition()
+                .duration(1000)
+                .call(
+                    globalZoom.transform,
+                    zoomIdentity.translate(0, 0).scale(1)
+                );
+        }
+    });
 
     const nodeSelection = svg
         .append('g')
@@ -463,14 +456,14 @@ const buildForceGraph = (
         .attr('r', 5)
         .call(registerToolTip)
         .call(registerDragHandler, simulation)
-        .call(registerClickZoom, svg, width);
+        .call(registerClickZoom, svg);
 
     registerTickHandler(simulation, linkSelection, nodeSelection);
 
     const zoomIndicator = svg
         .append('g')
         .attr('class', 'control zoom-indicator')
-        .attr('transform', `translate(${width / 2 - 100}, ${-height / 2})`);
+        .attr('transform', `translate(${w / 2 - 100}, ${-h / 2})`);
 
     zoomIndicator
         .append('rect')
@@ -484,7 +477,7 @@ const buildForceGraph = (
         .attr('transform', `translate(2, 15)`);
 
     svg.append('g')
-        .attr('transform', `translate(${width / 2 - 100}, ${height / 2 - 130})`)
+        .attr('transform', `translate(${w / 2 - 100}, ${h / 2 - 130})`)
         .attr('class', 'control legend-container')
         .append('rect')
         .attr('width', '100')

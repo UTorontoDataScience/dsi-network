@@ -4,8 +4,14 @@ import {
     AcademicProgramsDataRaw,
     PersonDataRaw,
     Person,
-    BaseEntity,
     Resource,
+    Relationship,
+    Network,
+    Institution,
+    Campus,
+    Division,
+    Unit,
+    ModelEntity,
 } from '../types';
 import { getKeys, groupBy, uniqueBy } from '../util/util';
 
@@ -15,41 +21,17 @@ const fetchAcademicProgramsData = async () => {
     >;
 };
 
+const fetchPeopleData = async () => {
+    return (await (await fetch('people.json')).json()) as Promise<
+        PersonDataRaw[]
+    >;
+};
+
 const fetchResourceData = async () => {
     return (await (await fetch('resource.json')).json()) as Promise<Resource[]>;
 };
 
-export type Relationship =
-    | 'affiliate'
-    | 'department'
-    | 'campus'
-    | 'division'
-    | 'fellow'
-    | 'graduate_student'
-    | 'grantee'
-    | 'institution'
-    | 'postdoc'
-    | 'principal_investigator'
-    | 'professor'
-    | 'program'
-    | 'researcher'
-    | 'resource'
-    | 'staff'
-    | 'support'
-    | 'undergraduate';
-
-export interface EntityDict {
-    campus: Campus[];
-    division: Division[];
-    institution: Institution[];
-    network: Network[];
-    person: Person[];
-    program: AcademicProgram[];
-    resource: Resource[];
-    unit: Unit[];
-}
-
-const initialEntityAttributes = {
+const baseEntityAttributes = {
     parentId: null,
     parentType: null,
     relationship: null,
@@ -72,21 +54,15 @@ const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
                 ? `${u.program} (${u.campus})`
                 : u.program,
         type: 'program' as const,
-        ...initialEntityAttributes,
+        ...baseEntityAttributes,
     }));
-};
-
-const fetchPeopleData = async () => {
-    return (await (await fetch('people.json')).json()) as Promise<
-        PersonDataRaw[]
-    >;
 };
 
 /* 
     create separate person entity for primary and secondary roles and replace boolean string flags with `true`
 */
 const makePerson = (type: 'primary' | 'secondary', person: PersonDataRaw) => {
-    const ret = { ...initialEntityAttributes } as any;
+    const ret = { ...baseEntityAttributes } as any;
     const filterStr = type === 'primary' ? 'secondary' : 'primary';
 
     getKeys(person).forEach(k => {
@@ -113,25 +89,12 @@ const transformPerson = (person: PersonDataRaw) => [
     person.secondary_role ? makePerson('secondary', person) : null,
 ];
 
-export type Campus = BaseEntity;
-
-export type Division = BaseEntity;
-
-export type Unit = BaseEntity;
-
-export type Institution = BaseEntity;
-
-export type Network = BaseEntity;
-
-export type EntityType = keyof EntityDict;
-
-// people should be limited to these roles already
 const getPersonRelationship = (role: string): Relationship =>
     role.toLowerCase().includes('professor')
         ? 'professor'
         : 'principal_investigator';
 
-/* mutates program and people entities by adding parent identifiers and splitting people by role */
+/*  add parent identifiers and split person entries by role */
 const linkEntities = (
     programs: AcademicProgram[],
     people: Person[],
@@ -141,7 +104,7 @@ const linkEntities = (
         name: 'Data Science Network',
         id: 1,
         type: 'network',
-        ...{ ...initialEntityAttributes },
+        ...baseEntityAttributes,
     };
 
     const institutions: Institution[] = [
@@ -193,7 +156,6 @@ const linkEntities = (
         }))
         .filter(d => !!d.name && d.parentId && d.name) as Division[];
 
-    /* has ids */
     const divisionMap = groupBy(divisions, 'name');
 
     const units = programs
@@ -205,17 +167,20 @@ const linkEntities = (
                 .map(p => ({ department: p.department, division: p.division }))
         )
         .filter(uniqueBy('department'))
-        .filter(d => d.department !== 'Not Applicable')
-        .filter(d => divisionMap[d.division])
+        .filter(
+            d =>
+                !!d.department &&
+                divisionMap[d.division] &&
+                d.department !== 'Not Applicable'
+        )
         .map((u, i) => ({
             id: i + 1,
             name: u.department,
             type: 'unit' as const,
             parentId: divisionMap[u.division][0].id,
             parentType: 'division',
-            relationship: 'unit',
-        }))
-        .filter(u => !!u.name && u.parentId) as Unit[];
+            relationship: 'department',
+        })) as Unit[];
 
     const filteredPeople = people.filter(
         p =>
@@ -227,6 +192,7 @@ const linkEntities = (
     const unitMap = groupBy(units, 'name');
     const institutionMap = groupBy(institutions, 'name');
 
+    /* attach to parent in order of ascending generality */
     const linkedPeople = filteredPeople
         .map(p => {
             if (unitMap[p.department]) {
@@ -255,7 +221,6 @@ const linkEntities = (
         .filter(Boolean) as Person[];
 
     // units (departments) are parents of programs -- try linking there first, then division
-    // each can have only one parent
     const filteredPrograms = programs
         .map(p => {
             let divisionId: number | undefined;
@@ -331,7 +296,5 @@ const getModel = async (): Promise<ModelEntity[]> => {
 
     return linkEntities(programs, people, resources);
 };
-
-export type ModelEntity = Unit | Division | Person | AcademicProgram;
 
 export default getModel;

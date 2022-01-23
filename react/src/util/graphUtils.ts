@@ -1,5 +1,5 @@
 import { HierarchyNode, stratify } from 'd3-hierarchy';
-import { ModelEntity } from '../data/model';
+import { ModelEntity } from '../types';
 
 /* simple node for filtering  */
 interface NNode {

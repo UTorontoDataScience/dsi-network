@@ -1,5 +1,4 @@
 import { HierarchyNode } from 'd3-hierarchy';
-import { EntityType, ModelEntity, Relationship } from './data/model';
 
 export interface BaseEntity {
     id: number;
@@ -340,6 +339,50 @@ export interface Person extends BaseEntity {
     main_funding_position_private_write_in_1: string;
     main_funding_position_private_write_in_2: string;
 }
+
+export type Relationship =
+    | 'affiliate'
+    | 'department'
+    | 'campus'
+    | 'division'
+    | 'fellow'
+    | 'graduate_student'
+    | 'grantee'
+    | 'institution'
+    | 'postdoc'
+    | 'principal_investigator'
+    | 'professor'
+    | 'program'
+    | 'researcher'
+    | 'resource'
+    | 'staff'
+    | 'support'
+    | 'undergraduate';
+
+export type Campus = BaseEntity;
+
+export type Division = BaseEntity;
+
+export type Unit = BaseEntity;
+
+export type Institution = BaseEntity;
+
+export type Network = BaseEntity;
+
+export type EntityType = keyof EntityDict;
+
+export interface EntityDict {
+    campus: Campus[];
+    division: Division[];
+    institution: Institution[];
+    network: Network[];
+    person: Person[];
+    program: AcademicProgram[];
+    resource: Resource[];
+    unit: Unit[];
+}
+
+export type ModelEntity = Unit | Division | Person | AcademicProgram;
 
 export interface DSINode
     extends Record<string, any>,

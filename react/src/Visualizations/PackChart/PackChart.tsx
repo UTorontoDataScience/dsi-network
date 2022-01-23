@@ -3,8 +3,7 @@ import { select } from 'd3-selection';
 import { scaleLinear } from 'd3-scale';
 import { pack, HierarchyCircularNode, HierarchyNode } from 'd3-hierarchy';
 import { interpolateHcl, interpolateZoom } from 'd3-interpolate';
-import { ModelEntity, Relationship } from '../../data/model';
-import { DSINode } from '../../types';
+import { DSINode, ModelEntity, Relationship } from '../../types';
 import { groupBy, makeTreeStratify, mapTree } from '../../util';
 
 const PackChart: React.FC<{ entities: ModelEntity[] }> = ({ entities }) => {

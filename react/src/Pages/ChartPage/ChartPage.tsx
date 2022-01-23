@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Autocomplete,
     FormControl,
     Grid,
     InputLabel,
     MenuItem,
-    Paper,
     Select,
     Tab,
     Tabs,
@@ -17,9 +16,10 @@ import debounce from 'lodash.debounce';
 import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
-import getModel, { ModelEntity } from '../../data/model';
+import getModel from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
 import { getEntityId, makeTreeStratify, mapTree } from '../../util';
+import { ModelEntity } from '../../types';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -30,6 +30,13 @@ const ChartPage: React.FC = () => {
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
     const [tree0, setTree0] = useState<HierarchyNode<ModelEntity>>();
+    const [containerWidth, setContainerWidth] = useState<number>();
+
+    const chartContainerRef = useCallback((node: HTMLDivElement) => {
+        if (node !== null) {
+            setContainerWidth(Math.min(node.clientWidth, 800));
+        }
+    }, []);
 
     useEffect(() => {
         const _getModel = async () => {
@@ -112,10 +119,19 @@ const ChartPage: React.FC = () => {
             )}
             {activeTab === 0 && (
                 <Grid container direction="row" item spacing={3}>
-                    <Grid container justifyContent="flex-end" item xs={9}>
-                        <Paper variant="outlined">
-                            {tree && <ForceGraph tree={tree} />}
-                        </Paper>
+                    <Grid
+                        container
+                        justifyContent="flex-end"
+                        ref={chartContainerRef}
+                        item
+                        xs={9}
+                    >
+                        {tree && containerWidth && (
+                            <ForceGraph
+                                containerWidth={containerWidth}
+                                tree={tree}
+                            />
+                        )}
                     </Grid>
                     <Grid item xs={3} container direction="column" spacing={5}>
                         <Grid container direction="column" item spacing={2}>

@@ -29,7 +29,7 @@ type DSISimulation = Simulation<DSINode, SimulationLinkDatum<DSINode>>;
 
 type DSIForceLinks = ForceLink<DSINode, SimulationLinkDatum<DSINode>>;
 
-type DSINodeSelection = Selection<SVGCircleElement, DSINode, BaseType, unknown>;
+type DSINodeSelection = Selection<SVGGElement, DSINode, BaseType, unknown>;
 
 export interface SelectedModel {
     type: EntityType;
@@ -151,14 +151,15 @@ const updateNodeSelection = (
         .join(
             enter => {
                 const enterSelection = enter
+                    .append('g')
+                    .attr('class', 'circle-node');
+
+                enterSelection
                     .append('circle')
                     .attr('fill', d => colorScale(d.data.type))
                     .attr('stroke', d =>
                         d.children ? theme.palette.text.primary : null
                     )
-                    .call(registerToolTip);
-
-                enterSelection
                     .transition()
                     .attr('r', d => (d.selected ? 7 : 5))
                     .attr('fill', function (d) {
@@ -168,11 +169,22 @@ const updateNodeSelection = (
                     })
                     .duration(1500);
 
+                enterSelection.call(registerToolTip);
+
+                enterSelection
+                    .append('path')
+                    .attr('d', 'M -15 0 A 15 15, 0, 1, 0, 0 15 L 0 0 Z')
+                    .attr('fill', 'red')
+                    .attr('stroke', 'black')
+                    .transition()
+                    .duration(700)
+                    .style('opacity', d => (d.selected ? 1 : 0));
+
                 return enterSelection;
             },
             update => update,
             exit => {
-                exit.transition().attr('r', 0).duration(1500).remove();
+                exit.remove();
             }
         )
         //ensure selected are in "front"
@@ -205,11 +217,11 @@ const registerTickHandler = (
         BaseType,
         unknown
     >,
-    nodeSelection: Selection<SVGCircleElement, DSINode, BaseType, unknown>
+    nodeSelection: DSINodeSelection
 ) => {
     // simulation mutates data bound to nodes by reference
     simulation.on('tick', () => {
-        nodeSelection.attr('cx', d => d.x!).attr('cy', d => d.y!);
+        nodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
 
         linkSelection
             .attr('x1', d => (d.source as DSINode).x!)
@@ -288,7 +300,7 @@ const registerDragHandler = (
         d.fy = null;
     };
 
-    const handler = drag<SVGCircleElement, DSINode>()
+    const handler = drag<SVGGElement, DSINode>()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended);
@@ -337,9 +349,9 @@ const makeDefaultZoomHandler =
 
 const updateForceGraph = (tree: DSINode, theme: Theme) => {
     const nodeSelection = select('g.circle-container').selectAll<
-        SVGCircleElement,
+        SVGGElement,
         DSINode
-    >('circle');
+    >('g.circle-node');
 
     const selectionRootNode = nodeSelection
         .data()
@@ -383,7 +395,7 @@ const updateForceGraph = (tree: DSINode, theme: Theme) => {
     const simulation = buildSimulation(tree.descendants(), forceLinks, 1000);
 
     registerDragHandler(
-        selectAll<SVGCircleElement, DSINode>('circle'),
+        selectAll<SVGGElement, DSINode>('g.circle-node'),
         simulation
     );
 
@@ -393,7 +405,7 @@ const updateForceGraph = (tree: DSINode, theme: Theme) => {
     registerTickHandler(
         simulation,
         selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line'),
-        selectAll('circle')
+        selectAll('g.circle-node')
     );
 
     return simulation;
@@ -447,13 +459,18 @@ const buildForceGraph = (tree: DSINode, selector: string, theme: Theme) => {
         .append('g')
         .attr('class', 'container circle-container')
         .attr('stroke-width', 1.5)
-        .selectAll<SVGCircleElement, never>('circle')
+        .selectAll<SVGGElement, DSINode>('g')
         .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
-        .join('circle')
-        .attr('class', 'chart')
+        .join('g')
+        .attr('class', 'circle-node');
+
+    nodeSelection
+        .append('circle')
         .attr('fill', d => colorScale(d.data.type))
         .attr('stroke', d => (d.children ? theme.palette.text.primary : null))
-        .attr('r', 5)
+        .attr('r', 5);
+
+    nodeSelection
         .call(registerToolTip)
         .call(registerDragHandler, simulation)
         .call(registerClickZoom, svg);

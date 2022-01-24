@@ -4,7 +4,7 @@ import { scaleLinear } from 'd3-scale';
 import { pack, HierarchyCircularNode, HierarchyNode } from 'd3-hierarchy';
 import { interpolateHcl, interpolateZoom } from 'd3-interpolate';
 import { DSINode, ModelEntity, Relationship } from '../../types';
-import { groupBy, makeTreeStratify, mapTree } from '../../util';
+import { groupBy, makeTree, mapTree } from '../../util';
 
 const PackChart: React.FC<{ entities: ModelEntity[] }> = ({ entities }) => {
     const [HierarchicalData, setHierarchicalData] = useState<DSINode>();
@@ -17,18 +17,15 @@ const PackChart: React.FC<{ entities: ModelEntity[] }> = ({ entities }) => {
 
     useEffect(() => {
         if (entities) {
-            setHierarchicalData(makeTree(entities));
+            setHierarchicalData(_makeTree(entities));
         }
     }, [entities]);
 
     return <span id="test" />;
 };
 
-const makeTree = (model: ModelEntity[]) =>
-    makeTreeStratify(
-        model,
-        model.find(e => e.type === 'campus' && e.id === 1)!
-    );
+const _makeTree = (model: ModelEntity[]) =>
+    makeTree(model, model.find(e => e.type === 'campus' && e.id === 1)!);
 
 interface DSIPackNode extends DSINode {
     personMap?: Record<keyof Relationship, number>;

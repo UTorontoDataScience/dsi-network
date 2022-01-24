@@ -19,7 +19,7 @@ import {
     SimulationNodeDatum,
 } from 'd3-force';
 import { EntityType, ModelEntity } from '../../types';
-import { capitalize, getEntityId, groupBy } from '../../util';
+import { capitalize, getEntityId, mapTree } from '../../util';
 
 // for debugging
 (window as any).d3Select = select;
@@ -36,37 +36,63 @@ export interface SelectedModel {
     id: number;
 }
 interface ForceGraphProps {
-    tree: HierarchyNode<ModelEntity>;
     containerWidth: number;
+    selectedModels: SelectedModel[];
+    tree: HierarchyNode<ModelEntity>;
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({ containerWidth, tree }) => {
-    const [chartRendered, setChartRendered] = useState(false);
-    // we need to manually stop the simulation to prevent memory leaks from the tick event (for now)
-    const [simulation, setSimulation] = useState<DSISimulation>();
+const ForceGraph: React.FC<ForceGraphProps> = ({
+    containerWidth,
+    selectedModels,
+    tree,
+}) => {
+    const [Graph, setGraph] = useState<D3ForceGraph2>();
 
     const theme = useTheme();
 
+    /* initialize */
     useEffect(() => {
-        if (tree && chartRendered) {
-            // crude check for now, soon we'll want a proper transition
-            simulation!.stop();
-            if (tree.descendants().length === simulation?.nodes().length) {
-                setSimulation(updateForceGraph(tree, theme));
-            } else {
-                selectAll('svg').remove();
-                setSimulation(buildForceGraph(tree, 'test', theme));
-            }
+        if (tree && !Graph && containerWidth) {
+            const Graph = new D3ForceGraph2('test', theme, tree);
+            Graph.render();
+            setGraph(Graph);
         }
+    }, [Graph, containerWidth, tree, theme]);
+
+    /* update */
+    useEffect(() => {
+        if (tree && Graph) {
+            selectAll('svg').remove();
+            const Graph = new D3ForceGraph2('test', theme, tree);
+            Graph.render();
+            setGraph(Graph);
+        }
+        /* change only if tree changes */
         /* eslint-disable-next-line react-hooks/exhaustive-deps  */
     }, [tree]);
 
+    /* highlight selected models */
     useEffect(() => {
-        if (tree && !chartRendered && containerWidth) {
-            setSimulation(buildForceGraph(tree, 'test', theme));
-            setChartRendered(true);
+        if (Graph) {
+            const selectedMap = selectedModels.reduce<Record<string, boolean>>(
+                (acc, curr) => ({
+                    ...acc,
+                    [`${curr.type}-${curr.id}`]: true,
+                }),
+                {}
+            );
+
+            // clone tree to prevent mutating bound data,
+            // causing d3 to not register enter selection
+            const mapped = mapTree(tree, t => ({
+                ...t,
+                selected: selectedMap[getEntityId(t.data)],
+            }));
+
+            Graph.update(mapped);
         }
-    }, [chartRendered, containerWidth, tree, theme]);
+        /* eslint-disable-next-line react-hooks/exhaustive-deps  */
+    }, [selectedModels]);
 
     return containerWidth ? (
         <div
@@ -103,8 +129,9 @@ interface DSINode
 /**
  *  Unique key used to identify nodes for d3.join process and mapping simulation links to source/target
  */
-const makeNodeKey = (datum: DSINode) =>
-    `${datum.data.id}-${datum.data.type}-${datum.parent?.data.id}-${datum.data.relationship}-${datum.selected}`;
+const makeNodeKey = (datum: DSINode) => {
+    return `${datum.data.id}-${datum.data.type}-${datum.parent?.data.id}-${datum.data.relationship}-${datum.selected}`;
+};
 
 /**
  *  Unique key used to identify links for d3.join process
@@ -117,17 +144,17 @@ const makeLinkKey = <T extends DSINode>(link: SimulationLinkDatum<T>) => {
 
 const buildSimulation = (
     nodes: DSINode[],
-    forceLinks: DSIForceLinks,
-    w: number
+    w: number,
+    forceLinks: DSIForceLinks
 ) =>
     forceSimulation<DSINode>(nodes)
-        .force('d', forceLinks.distance(w / 50).strength(1))
         .force(
             'charge',
             forceManyBody()
                 .strength(-25)
                 .distanceMax(w / 4)
         )
+        .force('links', forceLinks.distance(w / 50).strength(1))
         .force('collision', forceCollide().radius(6))
         .force('center', forceCenter())
         .velocityDecay(0.4);
@@ -136,78 +163,6 @@ const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
     forceLink<DSINode, SimulationLinkDatum<DSINode>>(links).id(model =>
         makeNodeKey(model)
     );
-
-/**
- *  Update nodes and return enter selection data for use by caller
- */
-const updateNodeSelection = (
-    nodeSelection: DSINodeSelection,
-    nodes: DSINode[],
-    theme: Theme
-) => {
-    const bound = nodeSelection.data(nodes, d => makeNodeKey(d));
-
-    bound
-        .join(
-            enter => {
-                const enterSelection = enter
-                    .append('g')
-                    .attr('class', 'circle-node');
-
-                enterSelection
-                    .append('circle')
-                    .attr('fill', d => colorScale(d.data.type))
-                    .attr('stroke', d =>
-                        d.children ? theme.palette.text.primary : null
-                    )
-                    .transition()
-                    .attr('r', d => (d.selected ? 7 : 5))
-                    .attr('fill', function (d) {
-                        return d.selected
-                            ? '#e7298a'
-                            : select(this).attr('fill');
-                    })
-                    .duration(1500);
-
-                enterSelection.call(registerToolTip);
-
-                enterSelection
-                    .append('path')
-                    .attr('d', 'M -15 0 A 15 15, 0, 1, 0, 0 15 L 0 0 Z')
-                    .attr('fill', 'red')
-                    .attr('stroke', 'black')
-                    .transition()
-                    .duration(700)
-                    .style('opacity', d => (d.selected ? 1 : 0));
-
-                return enterSelection;
-            },
-            update => update,
-            exit => {
-                exit.remove();
-            }
-        )
-        //ensure selected are in "front"
-        .sort(a => (a.selected ? 1 : -1));
-
-    return bound.enter().data();
-};
-
-const updateLinkSelection = (
-    linkSelection: Selection<
-        SVGLineElement,
-        SimulationLinkDatum<DSINode>,
-        any,
-        unknown
-    >,
-    links: SimulationLinkDatum<DSINode>[],
-    theme: Theme
-) => {
-    return linkSelection
-        .data(links, makeLinkKey)
-        .join('line')
-        .attr('stroke', theme.palette.text.primary);
-};
 
 const registerTickHandler = (
     simulation: DSISimulation,
@@ -229,23 +184,6 @@ const registerTickHandler = (
             .attr('x2', d => (d.target as DSINode).x!)
             .attr('y2', d => (d.target as DSINode).y!);
     });
-};
-
-/*  mutate the tree so it has the coorodinates from the previous simulation*/
-const mapNodeSelectionData = (oldTree: DSINode, newTree: DSINode) => {
-    const oldTreeMap = groupBy(
-        oldTree.descendants().map(n => ({ ...n, id: getEntityId(n.data) })),
-        'id'
-    );
-
-    /* these don't have ids yet */
-    newTree.each(d => {
-        const entry = oldTreeMap[getEntityId(d.data)][0];
-        d.x = entry.x;
-        d.y = entry.y;
-    });
-
-    return newTree;
 };
 
 const registerToolTip = (selection: DSINodeSelection) => {
@@ -321,15 +259,10 @@ const registerClickZoom = (
     const clickZoom = (event: MouseEvent, node: DSINode) => {
         event.stopPropagation();
 
-        svg.transition()
-            .duration(750)
-            .call(
-                nodeZoom.transform,
-                zoomIdentity
-                    .translate(0, 0)
-                    .scale(7)
-                    .translate(-node.x!, -node.y!)
-            );
+        nodeZoom.transform(
+            svg.transition().duration(750),
+            zoomIdentity.translate(0, 0).scale(7).translate(-node.x!, -node.y!)
+        );
     };
 
     selection.on('click', clickZoom);
@@ -346,167 +279,6 @@ const makeDefaultZoomHandler =
             .text(d => `Zoom: ${Math.floor(d * 100).toString()}%`)
             .attr('transform', `translate(2,15)`);
     };
-
-const updateForceGraph = (tree: DSINode, theme: Theme) => {
-    const nodeSelection = select('g.circle-container').selectAll<
-        SVGGElement,
-        DSINode
-    >('g.circle-node');
-
-    const selectionRootNode = nodeSelection
-        .data()
-        .find(n => getEntityId(n.data) === tree.id)!;
-
-    // map coordinates from previous simulations to new data
-    // mutates tree
-    mapNodeSelectionData(selectionRootNode, tree);
-
-    const linkSelection = select('g.line-container').selectAll<
-        SVGLineElement,
-        SimulationLinkDatum<DSINode>
-    >('line');
-
-    // build new force links (can't reuse old)
-    // map to ensure that simulationNodes and their latest locations are recomputed at initialization time
-    const forceLinks = buildForceLinks(tree.links()).links(
-        tree.links().map(l => ({
-            source: makeNodeKey(l.source),
-            target: makeNodeKey(l.target),
-        }))
-    );
-
-    //fix coordinates of unselected nodes
-    tree.eachAfter(n => {
-        if (n.children && n.children.find(n => n.selected)) {
-            n.children.forEach(n => {
-                n.fx = null;
-                n.fy = null;
-            });
-        } else {
-            n.fx = n.x;
-            n.fy = n.y;
-        }
-    });
-
-    // join new data to dom selection so tickHandler can read it
-    updateNodeSelection(nodeSelection, tree.descendants(), theme);
-
-    //initialize simulation (mutate forceLinks)
-    const simulation = buildSimulation(tree.descendants(), forceLinks, 1000);
-
-    registerDragHandler(
-        selectAll<SVGGElement, DSINode>('g.circle-node'),
-        simulation
-    );
-
-    // ensure that link selection has recalculated coordinates bound before registering tick callback
-    updateLinkSelection(linkSelection, forceLinks.links(), theme);
-
-    registerTickHandler(
-        simulation,
-        selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line'),
-        selectAll('g.circle-node')
-    );
-
-    return simulation;
-};
-
-const buildForceGraph = (tree: DSINode, selector: string, theme: Theme) => {
-    const w = 1000;
-    const h = 1000;
-
-    const forceLinks = buildForceLinks(tree.links());
-
-    const simulation = buildSimulation(tree.descendants(), forceLinks, w);
-
-    const svg = select(`#${selector}`)
-        .append('svg')
-        .attr('class', 'main')
-        .attr('viewBox', [-w / 2, -h / 2, w, h]);
-
-    const linkSelection = svg
-        .append('g')
-        .attr('stroke-opacity', 0.6)
-        .attr('class', 'container line-container')
-        .selectAll<SVGLineElement, never>('line')
-        .data(forceLinks.links())
-        .attr('class', 'chart')
-        .join('line')
-        .attr('stroke', theme.palette.text.primary);
-
-    const globalZoomHandler = makeDefaultZoomHandler(svg);
-
-    /* 'global' zoom behavior, will listen on SVG and adjust scale on mouse wheel */
-    const globalZoom = zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.5, 40])
-        .on('zoom', globalZoomHandler);
-
-    svg.call(globalZoom);
-
-    svg.on('click', function () {
-        const currentZoom = zoomTransform(select(this).node()!).k;
-        if (currentZoom > 1) {
-            svg.transition()
-                .duration(1000)
-                .call(
-                    globalZoom.transform,
-                    zoomIdentity.translate(0, 0).scale(1)
-                );
-        }
-    });
-
-    const nodeSelection = svg
-        .append('g')
-        .attr('class', 'container circle-container')
-        .attr('stroke-width', 1.5)
-        .selectAll<SVGGElement, DSINode>('g')
-        .data(simulation.nodes(), (d, i) => (d ? makeNodeKey(d) : i))
-        .join('g')
-        .attr('class', 'circle-node');
-
-    nodeSelection
-        .append('circle')
-        .attr('fill', d => colorScale(d.data.type))
-        .attr('stroke', d => (d.children ? theme.palette.text.primary : null))
-        .attr('r', 5);
-
-    nodeSelection
-        .call(registerToolTip)
-        .call(registerDragHandler, simulation)
-        .call(registerClickZoom, svg);
-
-    registerTickHandler(simulation, linkSelection, nodeSelection);
-
-    const zoomIndicator = svg
-        .append('g')
-        .attr('class', 'control zoom-indicator')
-        .attr('transform', `translate(${w / 2 - 100}, ${-h / 2})`);
-
-    zoomIndicator
-        .append('rect')
-        .attr('width', 100)
-        .attr('height', 17)
-        .attr('fill', 'white');
-
-    zoomIndicator
-        .append('text')
-        .text('Zoom: 100%')
-        .attr('transform', `translate(2, 15)`);
-
-    svg.append('g')
-        .attr('transform', `translate(${w / 2 - 100}, ${h / 2 - 130})`)
-        .attr('class', 'control legend-container')
-        .append('rect')
-        .attr('width', '100')
-        .attr('height', '130')
-        .attr('fill', 'white');
-
-    drawLegend('.legend-container');
-
-    appendToolTip();
-
-    return simulation;
-};
 
 const drawLegend = (selector: string) => {
     const container = select(selector);
@@ -543,3 +315,205 @@ const appendToolTip = () => {
 };
 
 export default ForceGraph;
+
+class D3ForceGraph2 {
+    h: number;
+    selector: string;
+    svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
+    simulation?: DSISimulation;
+    theme: Theme;
+    tree: DSINode;
+    w: number;
+    constructor(selector: string, theme: Theme, tree: DSINode) {
+        this.selector = selector;
+        this.theme = theme;
+        this.tree = tree;
+        this.w = 1000;
+        this.h = 1000;
+        this.svg = select(`#${this.selector}`)
+            .append('svg')
+            .attr('class', 'main')
+            .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h]);
+
+        this.svg
+            .append('g')
+            .attr('stroke-opacity', 0.6)
+            .attr('class', 'container line-container');
+
+        this.svg
+            .append('g')
+            .attr('class', 'container circle-container')
+            .attr('stroke-width', 1.5);
+
+        const globalZoomHandler = makeDefaultZoomHandler(this.svg);
+
+        /* 'global' zoom behavior, will listen on SVG and adjust scale on mouse wheel */
+        const globalZoom = zoom<SVGSVGElement, unknown>()
+            .scaleExtent([0.5, 40])
+            .on('zoom', globalZoomHandler);
+
+        this.svg.call(globalZoom);
+
+        const zoomIndicator = this.svg
+            .append('g')
+            .attr('class', 'control zoom-indicator')
+            .attr(
+                'transform',
+                `translate(${this.w / 2 - 100}, ${-this.h / 2})`
+            );
+
+        zoomIndicator
+            .append('rect')
+            .attr('width', 100)
+            .attr('height', 17)
+            .attr('fill', 'white');
+
+        zoomIndicator
+            .append('text')
+            .text('Zoom: 100%')
+            .attr('transform', `translate(2, 15)`);
+
+        /*eslint-disable-next-line @typescript-eslint/no-this-alias */
+        const that = this;
+
+        this.svg.on('click', function () {
+            const currentZoom = zoomTransform(select(this).node()!).k;
+            if (currentZoom > 1) {
+                that.svg
+                    .transition()
+                    .duration(1000)
+                    .call(
+                        globalZoom.transform,
+                        zoomIdentity.translate(0, 0).scale(1)
+                    );
+            }
+        });
+
+        drawLegend('.legend-container');
+
+        appendToolTip();
+    }
+
+    appendLinks = (forceLinks: DSIForceLinks) =>
+        this.svg
+            .select<SVGGElement>('g.line-container')
+            .selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line')
+            .data(forceLinks.links(), makeLinkKey)
+            .attr('class', 'chart')
+            .join('line')
+            .attr('stroke', this.theme.palette.text.primary);
+
+    appendNodes = (nodes: DSINode[], simulation: DSISimulation) => {
+        const nodeSelection = this.svg
+            .select('g.circle-container')
+            .selectAll<SVGGElement, DSINode>('g.circle-node')
+            .data(nodes, (d, i) => (d ? makeNodeKey(d) : i))
+            .join(
+                enter => {
+                    const enterSelection = enter
+                        .append('g')
+                        .attr('class', 'circle-node');
+
+                    enterSelection
+                        .append('circle')
+                        .attr('fill', d => colorScale(d.data.type))
+                        .attr('stroke', d =>
+                            d.children ? this.theme.palette.text.primary : null
+                        )
+                        .transition()
+                        .duration(1500)
+                        .attr('r', d => (d.selected ? 8 : 5))
+                        .attr('fill', function (d) {
+                            return d.selected
+                                ? '#e7298a'
+                                : select(this).attr('fill');
+                        });
+
+                    enterSelection
+                        .append('path')
+                        .attr('d', 'M -15 0 A 15 15, 0, 1, 0, 0 15 L 0 0 Z')
+                        .attr('fill', 'red')
+                        .attr('stroke', 'black')
+                        .attr('opacity', 0)
+                        .transition()
+                        .duration(700)
+                        .style('opacity', d => (d.selected ? 1 : 0));
+
+                    return enterSelection;
+                },
+                update => update,
+                exit => exit.remove()
+            )
+            //ensure selected are in "front"
+            .sort(a => (a.selected ? 1 : -1));
+
+        nodeSelection
+            .call(registerToolTip)
+            .call(registerDragHandler, simulation)
+            .call(registerClickZoom, this.svg);
+
+        return nodeSelection;
+    };
+
+    render = () => {
+        if (this.tree) {
+            const forceLinks = buildForceLinks(this.tree.links());
+
+            this.simulation = buildSimulation(
+                this.tree.descendants(),
+                this.w,
+                forceLinks
+            );
+
+            const nodeSelection = this.appendNodes(
+                this.simulation.nodes(),
+                this.simulation
+            );
+
+            const linkSelection = this.appendLinks(forceLinks);
+
+            registerTickHandler(this.simulation, linkSelection, nodeSelection);
+        }
+    };
+
+    update = (tree: DSINode) => {
+        // uncomment only if adding new nodes/links
+        const forceLinks = buildForceLinks(tree.links()); /* .links(
+            tree.links().map(l => ({
+                source: makeNodeKey(l.source),
+                target: makeNodeKey(l.target),
+            }))
+        ); */
+
+        //fix coordinates of unselected nodes
+        tree.eachAfter(n => {
+            if (n.children && n.children.find(n => n.selected)) {
+                n.children.forEach(n => {
+                    n.fx = null;
+                    n.fy = null;
+                });
+            } else {
+                n.fx = n.x;
+                n.fy = n.y;
+            }
+        });
+
+        // stop sim to prevent timing issues
+        this.simulation?.stop();
+
+        this.simulation?.nodes(tree.descendants());
+        this.simulation?.force('links', forceLinks);
+
+        const linkSelection = this.appendLinks(forceLinks);
+        const nodSelection = this.appendNodes(
+            this.simulation!.nodes(),
+            this.simulation!
+        );
+
+        //since references have been broken w/ previous data, we need to reregister handler w/ new selections
+        registerTickHandler(this.simulation!, linkSelection, nodSelection);
+
+        this.simulation?.alpha(0.01);
+        this.simulation?.restart();
+    };
+}

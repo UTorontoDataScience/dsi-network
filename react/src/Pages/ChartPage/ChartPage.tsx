@@ -18,7 +18,7 @@ import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
-import { getEntityId, makeTreeStratify, mapTree } from '../../util';
+import { getEntityId, makeTree } from '../../util';
 import { ModelEntity } from '../../types';
 
 const ChartPage: React.FC = () => {
@@ -50,36 +50,17 @@ const ChartPage: React.FC = () => {
     /* base tree */
     useEffect(() => {
         if (model && root && !tree0) {
-            setTree0(makeTreeStratify(model, root));
+            setTree0(makeTree(model, root));
         }
     }, [model, root, tree0]);
 
     /* tree with latest root */
-    const _tree = useMemo(() => {
+    const tree = useMemo(() => {
         if (tree0 && root) {
-            return tree0.find(n => n.id === getEntityId(root));
+            // we shouldn't need to copy buy someone down the line is mutating....
+            return tree0.find(n => n.id === getEntityId(root))?.copy();
         }
     }, [tree0, root]);
-
-    /* tree with `selected` attribute */
-    const tree = useMemo(() => {
-        if (_tree) {
-            const selectedMap = (selected || []).reduce<
-                Record<string, boolean>
-            >(
-                (acc, curr) => ({
-                    ...acc,
-                    [`${curr.type}-${curr.id}`]: true,
-                }),
-                {}
-            );
-
-            return mapTree(_tree, t => ({
-                ...t,
-                selected: selectedMap[getEntityId(t.data)],
-            }));
-        }
-    }, [selected, _tree]);
 
     /* don't pass in nodes b/c autocomplete converts to JSON and you'll get circular errors */
     const options = useMemo(() => {
@@ -129,6 +110,7 @@ const ChartPage: React.FC = () => {
                         {tree && containerWidth && (
                             <ForceGraph
                                 containerWidth={containerWidth}
+                                selectedModels={selected}
                                 tree={tree}
                             />
                         )}

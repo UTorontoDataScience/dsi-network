@@ -10,10 +10,12 @@ interface NNode {
 export const getEntityId = (entity: ModelEntity) =>
     `${entity.type}-${entity.id}`;
 
-const makeTree = (entities: ModelEntity[], root: NNode) => {
+const makeSimpleTree = (entities: ModelEntity[], root: NNode) => {
     root.children = entities
         .filter(e => `${e.parentType}-${e.parentId}` === root.id)
-        .map(e => makeTree(entities, { id: getEntityId(e), children: [] }));
+        .map(e =>
+            makeSimpleTree(entities, { id: getEntityId(e), children: [] })
+        );
     return root;
 };
 
@@ -24,7 +26,7 @@ const getAllChildrenIds = (tree: NNode): string[] =>
 
 /* building tree to filter is redundant -- if we keep this approach, streamline by adding filter method to d3's Node */
 const filterEntities = (entities: ModelEntity[], root: ModelEntity) => {
-    const tree = makeTree(entities, {
+    const tree = makeSimpleTree(entities, {
         id: `${root.type}-${root.id}`,
         children: [],
     });
@@ -37,10 +39,8 @@ const filterEntities = (entities: ModelEntity[], root: ModelEntity) => {
         .map(e => JSON.parse(JSON.stringify(e)));
 };
 
-export const makeTreeStratify = (
-    entities: ModelEntity[],
-    root: ModelEntity
-) => {
+/* before we can pass the tree to stratify, we need to prune orphans */
+export const makeTree = (entities: ModelEntity[], root: ModelEntity) => {
     const stratifyFn = stratify<ModelEntity>()
         .id(getEntityId)
         .parentId(p =>

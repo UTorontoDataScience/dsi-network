@@ -57,7 +57,6 @@ const ChartPage: React.FC = () => {
     /* tree with latest root */
     const tree = useMemo(() => {
         if (tree0 && root) {
-            // we shouldn't need to copy buy someone down the line is mutating....
             return tree0.find(n => n.id === getEntityId(root))?.copy();
         }
     }, [tree0, root]);

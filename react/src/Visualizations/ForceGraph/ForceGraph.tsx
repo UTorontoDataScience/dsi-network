@@ -46,14 +46,14 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     selectedModels,
     tree,
 }) => {
-    const [Graph, setGraph] = useState<D3ForceGraph2>();
+    const [Graph, setGraph] = useState<D3ForceGraph>();
 
     const theme = useTheme();
 
     /* initialize */
     useEffect(() => {
         if (tree && !Graph && containerWidth) {
-            const Graph = new D3ForceGraph2('test', theme, tree);
+            const Graph = new D3ForceGraph('test', theme, tree);
             Graph.render();
             setGraph(Graph);
         }
@@ -63,7 +63,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     useEffect(() => {
         if (tree && Graph) {
             selectAll('svg').remove();
-            const Graph = new D3ForceGraph2('test', theme, tree);
+            const Graph = new D3ForceGraph('test', theme, tree);
             Graph.render();
             setGraph(Graph);
         }
@@ -246,40 +246,6 @@ const registerDragHandler = (
     return handler(selection);
 };
 
-const registerClickZoom = (
-    selection: DSINodeSelection,
-    svg: Selection<SVGSVGElement, unknown, any, any>
-) => {
-    const zoomHandler = makeDefaultZoomHandler(svg);
-
-    const nodeZoom = zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.5, 40])
-        .on('zoom', zoomHandler);
-
-    const clickZoom = (event: MouseEvent, node: DSINode) => {
-        event.stopPropagation();
-
-        nodeZoom.transform(
-            svg.transition().duration(750),
-            zoomIdentity.translate(0, 0).scale(7).translate(-node.x!, -node.y!)
-        );
-    };
-
-    selection.on('click', clickZoom);
-};
-
-const makeDefaultZoomHandler =
-    (svg: Selection<SVGSVGElement, unknown, HTMLElement, any>) =>
-    ({ transform }: D3ZoomEvent<SVGSVGElement, unknown>) => {
-        svg.selectAll('.container').attr('transform', transform.toString());
-        svg.select('g.zoom-indicator')
-            .selectAll<SVGTextElement, number>('text')
-            .data([transform.k || 1])
-            .join('text')
-            .text(d => `Zoom: ${Math.floor(d * 100).toString()}%`)
-            .attr('transform', `translate(2,15)`);
-    };
-
 const drawLegend = (selector: string) => {
     const container = select(selector);
 
@@ -316,7 +282,10 @@ const appendToolTip = () => {
 
 export default ForceGraph;
 
-class D3ForceGraph2 {
+class D3ForceGraph {
+    globalZoomHandler: ({
+        transform,
+    }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
     h: number;
     selector: string;
     svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
@@ -345,12 +314,24 @@ class D3ForceGraph2 {
             .attr('class', 'container circle-container')
             .attr('stroke-width', 1.5);
 
-        const globalZoomHandler = makeDefaultZoomHandler(this.svg);
-
+        this.globalZoomHandler = ({
+            transform,
+        }: D3ZoomEvent<SVGSVGElement, unknown>) => {
+            this.svg
+                .selectAll('.container')
+                .attr('transform', transform.toString());
+            this.svg
+                .select('g.zoom-indicator')
+                .selectAll<SVGTextElement, number>('text')
+                .data([transform.k || 1])
+                .join('text')
+                .text(d => `Zoom: ${Math.floor(d * 100).toString()}%`)
+                .attr('transform', `translate(2,15)`);
+        };
         /* 'global' zoom behavior, will listen on SVG and adjust scale on mouse wheel */
         const globalZoom = zoom<SVGSVGElement, unknown>()
             .scaleExtent([0.5, 40])
-            .on('zoom', globalZoomHandler);
+            .on('zoom', this.globalZoomHandler);
 
         this.svg.call(globalZoom);
 
@@ -450,9 +431,29 @@ class D3ForceGraph2 {
         nodeSelection
             .call(registerToolTip)
             .call(registerDragHandler, simulation)
-            .call(registerClickZoom, this.svg);
+            .call(this.registerClickZoom, this.svg);
 
         return nodeSelection;
+    };
+
+    registerClickZoom = (selection: DSINodeSelection) => {
+        const nodeZoom = zoom<SVGSVGElement, unknown>()
+            .scaleExtent([0.5, 40])
+            .on('zoom', this.globalZoomHandler);
+
+        const clickZoom = (event: MouseEvent, node: DSINode) => {
+            event.stopPropagation();
+
+            nodeZoom.transform(
+                this.svg.transition().duration(750),
+                zoomIdentity
+                    .translate(0, 0)
+                    .scale(7)
+                    .translate(-node.x!, -node.y!)
+            );
+        };
+
+        selection.on('click', clickZoom);
     };
 
     render = () => {

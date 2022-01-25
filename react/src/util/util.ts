@@ -1,10 +1,3 @@
-export const capitalize = (word: string) =>
-    word
-        .trim()
-        .split('')
-        .map((l, i) => (i ? l : l.toUpperCase()))
-        .join('');
-
 export const uniqueBy =
     <T extends object, K extends keyof T>(field: K | ((arg: T) => string)) =>
     (m: T, i: number, arr: T[]) =>
@@ -32,3 +25,15 @@ export function groupBy<T extends Record<string, any>, K extends keyof T>(
 
 export const getKeys = <T extends object>(obj: T) =>
     Object.keys(obj) as (keyof T)[];
+
+export const snakeToSpace = (str: string) => str.replace(/_/g, ' ');
+
+export const compose =
+    <T>(...fns: ((arg: T) => any)[]) =>
+    (arg: T) => {
+        let res = arg;
+        for (let i = 0; i < fns.length; i++) {
+            res = fns[i](res);
+        }
+        return res;
+    };

@@ -8,6 +8,7 @@ import {
     ModelEntity,
     Person,
 } from '../types';
+import { compose, snakeToSpace } from '../util';
 
 const resolveDetailComponet = (nodes: HierarchyNode<ModelEntity>[]) => {
     if (isProgramNodes(nodes)) {
@@ -39,7 +40,7 @@ const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
         {nodes.map(l => {
             return (
                 <Typography key={l.data.name}>
-                    {capitalize(l.data.relationship!)},{' '}
+                    {compose(capitalize, snakeToSpace)(l.data.relationship!)},{' '}
                     {l.parent && l.parent.data.name}
                 </Typography>
             );

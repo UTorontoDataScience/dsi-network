@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Theme, useTheme } from '@mui/material';
+import { capitalize, Theme, useTheme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
@@ -19,7 +19,7 @@ import {
     SimulationNodeDatum,
 } from 'd3-force';
 import { EntityType, ModelEntity } from '../../types';
-import { capitalize, getEntityId, mapTree } from '../../util';
+import { getEntityId, mapTree } from '../../util';
 
 // for debugging
 (window as any).d3Select = select;
@@ -387,6 +387,18 @@ class D3ForceGraph {
             }
         });
 
+        this.svg
+            .append('g')
+            .attr(
+                'transform',
+                `translate(${this.w / 2 - 100}, ${this.h / 2 - 130})`
+            )
+            .attr('class', 'control legend-container')
+            .append('rect')
+            .attr('width', '100')
+            .attr('height', '130')
+            .attr('fill', 'white');
+
         drawLegend('.legend-container');
 
         appendToolTip();
@@ -465,7 +477,7 @@ class D3ForceGraph {
                 this.svg.transition().duration(750),
                 zoomIdentity
                     .translate(0, 0)
-                    .scale(7)
+                    .scale(3)
                     .translate(-node.x!, -node.y!)
             );
         };

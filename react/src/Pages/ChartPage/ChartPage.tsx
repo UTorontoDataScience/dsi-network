@@ -19,7 +19,7 @@ import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
 import { getEntityId, makeTree } from '../../util';
-import { ModelEntity } from '../../types';
+import { DSINode, ModelEntity } from '../../types';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -110,6 +110,9 @@ const ChartPage: React.FC = () => {
                             <ForceGraph
                                 containerWidth={containerWidth}
                                 selectedModels={selected}
+                                selectedCallback={(node: DSINode) =>
+                                    setDetailSelection([node])
+                                }
                                 tree={tree}
                             />
                         )}

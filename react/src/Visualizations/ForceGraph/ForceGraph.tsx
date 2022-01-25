@@ -39,12 +39,14 @@ interface ForceGraphProps {
     containerWidth: number;
     selectedModels: SelectedModel[];
     tree: HierarchyNode<ModelEntity>;
+    selectedCallback: (node: DSINode) => void;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     containerWidth,
     selectedModels,
     tree,
+    selectedCallback,
 }) => {
     const [Graph, setGraph] = useState<D3ForceGraph>();
 
@@ -53,23 +55,31 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     /* initialize */
     useEffect(() => {
         if (tree && !Graph && containerWidth) {
-            const Graph = new D3ForceGraph('test', theme, tree);
+            const Graph = new D3ForceGraph(
+                'test',
+                theme,
+                tree,
+                selectedCallback
+            );
             Graph.render();
             setGraph(Graph);
         }
-    }, [Graph, containerWidth, tree, theme]);
+    }, [Graph, containerWidth, tree, selectedCallback, theme]);
 
-    /* update */
+    /* replace */
     useEffect(() => {
-        if (tree && Graph) {
+        if (Graph && tree !== Graph.tree) {
             selectAll('svg').remove();
-            const Graph = new D3ForceGraph('test', theme, tree);
+            const Graph = new D3ForceGraph(
+                'test',
+                theme,
+                tree,
+                selectedCallback
+            );
             Graph.render();
             setGraph(Graph);
         }
-        /* change only if tree changes */
-        /* eslint-disable-next-line react-hooks/exhaustive-deps  */
-    }, [tree]);
+    }, [tree, Graph, theme, selectedCallback]);
 
     /* highlight selected models */
     useEffect(() => {
@@ -92,7 +102,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             Graph.update(mapped);
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps  */
-    }, [selectedModels]);
+    }, [selectedModels, tree]);
 
     return containerWidth ? (
         <div
@@ -292,8 +302,14 @@ class D3ForceGraph {
     simulation?: DSISimulation;
     theme: Theme;
     tree: DSINode;
+    updateCallback: (node: DSINode) => void;
     w: number;
-    constructor(selector: string, theme: Theme, tree: DSINode) {
+    constructor(
+        selector: string,
+        theme: Theme,
+        tree: DSINode,
+        updateCallback: (node: DSINode) => void
+    ) {
         this.selector = selector;
         this.theme = theme;
         this.tree = tree;
@@ -303,6 +319,7 @@ class D3ForceGraph {
             .append('svg')
             .attr('class', 'main')
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h]);
+        this.updateCallback = updateCallback;
 
         this.svg
             .append('g')
@@ -402,7 +419,7 @@ class D3ForceGraph {
                             d.children ? this.theme.palette.text.primary : null
                         )
                         .transition()
-                        .duration(1500)
+                        .duration(700)
                         .attr('r', d => (d.selected ? 8 : 5))
                         .attr('fill', function (d) {
                             return d.selected
@@ -453,7 +470,10 @@ class D3ForceGraph {
             );
         };
 
-        selection.on('click', clickZoom);
+        selection.on('click', (e, node) => {
+            clickZoom(e, node);
+            this.updateCallback(node);
+        });
     };
 
     render = () => {

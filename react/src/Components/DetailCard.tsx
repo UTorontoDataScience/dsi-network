@@ -38,7 +38,7 @@ const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
         )}
         {nodes.map(l => {
             return (
-                <Typography key={l.id}>
+                <Typography key={l.data.name}>
                     {capitalize(l.data.relationship!)},{' '}
                     {l.parent && l.parent.data.name}
                 </Typography>

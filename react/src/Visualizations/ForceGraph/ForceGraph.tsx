@@ -233,7 +233,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.3).restart();
+        simulation.alphaTarget(0.1).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -566,7 +566,7 @@ class D3ForceGraph {
         //since references have been broken w/ previous data, we need to reregister handler w/ new selections
         registerTickHandler(this.simulation!, linkSelection, nodSelection);
 
-        this.simulation?.alpha(0.05);
+        this.simulation?.alpha(0.01);
         this.simulation?.restart();
     };
 }

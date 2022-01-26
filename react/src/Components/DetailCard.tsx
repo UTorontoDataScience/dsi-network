@@ -1,5 +1,12 @@
 import React from 'react';
-import { capitalize, Card, CardContent, Typography } from '@mui/material';
+import {
+    Box,
+    capitalize,
+    Card,
+    CardContent,
+    Divider,
+    Typography,
+} from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
 import {
     AcademicProgram,
@@ -8,7 +15,7 @@ import {
     ModelEntity,
     Person,
 } from '../types';
-import { compose, snakeToSpace } from '../util';
+import { compose, getEntityId, snakeToSpace } from '../util';
 
 const resolveDetailComponet = (nodes: HierarchyNode<ModelEntity>[]) => {
     if (isProgramNodes(nodes)) {
@@ -34,17 +41,33 @@ const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
         <Typography color="primary" variant="h4">
             {nodes[0].data.name}
         </Typography>
-        {!!nodes[0].data.email && (
-            <Typography>{nodes[0].data.email}</Typography>
-        )}
         {nodes.map(l => {
             return (
-                <Typography key={l.data.name}>
+                <Typography key={getEntityId(l.data)}>
                     {compose(capitalize, snakeToSpace)(l.data.relationship!)},{' '}
                     {l.parent && l.parent.data.name}
                 </Typography>
             );
         })}
+        {!!nodes[0].data.email && (
+            <Typography>{nodes[0].data.email}</Typography>
+        )}
+        {!!nodes[0].data.research_keywords && (
+            <>
+                <Divider />
+                <Typography variant="caption">
+                    <Box component="span" fontWeight="bold">
+                        Research Interests:{' '}
+                    </Box>
+                    {nodes[0].data.research_keywords
+                        .split(/[,;]/)
+                        .map((d, i) =>
+                            i === 0 ? capitalize(d.trim()) : d.trim()
+                        )
+                        .join(', ')}
+                </Typography>
+            </>
+        )}
     </CardContent>
 );
 

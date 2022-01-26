@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { capitalize, Theme, useTheme } from '@mui/material';
+import { Box, capitalize, Theme, useTheme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
@@ -52,11 +52,13 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
 
     const theme = useTheme();
 
+    const targetId = 'target';
+
     /* initialize */
     useEffect(() => {
         if (tree && !Graph && containerWidth) {
             const Graph = new D3ForceGraph(
-                'test',
+                targetId,
                 theme,
                 tree,
                 selectedCallback
@@ -66,12 +68,19 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         }
     }, [Graph, containerWidth, tree, selectedCallback, theme]);
 
+    /* toggle dark mode */
+    useEffect(() => {
+        if (Graph) {
+            Graph.toggleTheme(theme);
+        }
+    }, [theme, Graph]);
+
     /* replace */
     useEffect(() => {
         if (Graph && tree !== Graph.tree) {
             selectAll('svg').remove();
             const Graph = new D3ForceGraph(
-                'test',
+                targetId,
                 theme,
                 tree,
                 selectedCallback
@@ -105,12 +114,10 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     }, [selectedModels, tree]);
 
     return containerWidth ? (
-        <div
-            style={{
-                width: `${containerWidth}px`,
-                border: `solid thin ${theme.palette.text.secondary}`,
-            }}
-            id="test"
+        <Box
+            width={`${containerWidth}px`}
+            border={`solid thin ${theme.palette.text.secondary}`}
+            id={targetId}
         />
     ) : null;
 };
@@ -226,7 +233,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.05).restart();
+        simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -509,6 +516,19 @@ class D3ForceGraph {
         }
     };
 
+    toggleTheme = (theme: Theme) => {
+        this.theme = theme;
+        this.svg.selectAll('line').each(function () {
+            select(this).attr('stroke', theme.palette.text.primary);
+        });
+        this.svg.selectAll('circle').each(function () {
+            select(this).attr(
+                'stroke',
+                select(this).attr('stroke') ? theme.palette.text.primary : null
+            );
+        });
+    };
+
     update = (tree: DSINode) => {
         // uncomment only if adding new nodes/links
         const forceLinks = buildForceLinks(tree.links()); /* .links(
@@ -546,7 +566,7 @@ class D3ForceGraph {
         //since references have been broken w/ previous data, we need to reregister handler w/ new selections
         registerTickHandler(this.simulation!, linkSelection, nodSelection);
 
-        this.simulation?.alpha(0.01);
+        this.simulation?.alpha(0.05);
         this.simulation?.restart();
     };
 }

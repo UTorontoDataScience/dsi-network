@@ -91,6 +91,19 @@ const ChartPage: React.FC = () => {
         }
     }, [tree]);
 
+    const SelectableByKeyword = useMemo(() => {
+        return tree
+            ? tree
+                  .descendants()
+                  .filter(d => isPerson(d.data) && !!d.data.research_keywords)
+                  .map(p => ({
+                      keywords: (p.data as Person).research_keywords,
+                      type: p.data.type,
+                      id: p.data.id,
+                  }))
+            : [];
+    }, [tree]);
+
     /* don't pass in nodes b/c autocomplete converts to JSON and you'll get circular errors */
     const names = useMemo(() => {
         if (tree) {
@@ -112,6 +125,27 @@ const ChartPage: React.FC = () => {
             return {};
         }
     }, [model]);
+
+    const resetKeywordInputs = () => {
+        if (keywordInputString) {
+            setKeywordInputString('');
+        }
+        if (selectedKeyword) {
+            setSelectedKeyword('');
+        }
+        if (detailSelection.length) {
+            setDetailSelection([]);
+        }
+    };
+
+    const resetNameSearchInputs = () => {
+        if (nameSearchInputString) {
+            setNameSearchInputString('');
+        }
+        if (detailSelection.length) {
+            setDetailSelection([]);
+        }
+    };
 
     return (
         <Grid container direction="column" spacing={3}>
@@ -148,7 +182,15 @@ const ChartPage: React.FC = () => {
                                 containerWidth={containerWidth}
                                 selectedModels={selected}
                                 selectedCallback={(node: DSINode) =>
-                                    setDetailSelection([node])
+                                    setDetailSelection(
+                                        tree!
+                                            .descendants()
+                                            .filter(
+                                                m =>
+                                                    m.data.name ===
+                                                    node.data.name
+                                            )
+                                    )
                                 }
                                 tree={tree}
                             />
@@ -211,15 +253,7 @@ const ChartPage: React.FC = () => {
                                             inputValue={nameSearchInputString}
                                             onInputChange={(value: string) => {
                                                 setNameSearchInputString(value);
-                                                if (keywordInputString) {
-                                                    setKeywordInputString('');
-                                                }
-                                                if (selectedKeyword) {
-                                                    setSelectedKeyword('');
-                                                }
-                                                if (detailSelection.length) {
-                                                    setDetailSelection([]);
-                                                }
+                                                resetKeywordInputs();
                                                 value
                                                     ? setSelected(
                                                           tree
@@ -269,40 +303,21 @@ const ChartPage: React.FC = () => {
                                             label="Search by research keyword"
                                             onInputChange={(value: string) => {
                                                 setKeywordInputString(value);
-                                                if (nameSearchInputString) {
-                                                    setNameSearchInputString(
-                                                        ''
-                                                    );
-                                                }
-                                                if (detailSelection.length) {
-                                                    setDetailSelection([]);
-                                                }
+                                                resetNameSearchInputs();
                                                 setSelected(
-                                                    tree
-                                                        .descendants()
-                                                        .filter(
-                                                            d =>
-                                                                isPerson(
-                                                                    d.data
-                                                                ) &&
-                                                                !!d.data
-                                                                    .research_keywords
-                                                        )
-                                                        .filter(
-                                                            option =>
-                                                                !!value &&
-                                                                (
-                                                                    option as HierarchyNode<Person>
-                                                                ).data.research_keywords
-                                                                    .toLowerCase()
-                                                                    .includes(
-                                                                        value.toLowerCase()
-                                                                    )
-                                                        )
-                                                        .map(p => ({
-                                                            type: p.data.type,
-                                                            id: p.data.id,
-                                                        }))
+                                                    value
+                                                        ? SelectableByKeyword.filter(
+                                                              p =>
+                                                                  p.keywords
+                                                                      .toLowerCase()
+                                                                      .includes(
+                                                                          value.toLowerCase()
+                                                                      )
+                                                          ).map(p => ({
+                                                              type: p.type,
+                                                              id: p.id,
+                                                          }))
+                                                        : []
                                                 );
                                             }}
                                             onSelect={selected =>

@@ -12,8 +12,10 @@ import {
     AcademicProgram,
     isPeopleNodes,
     isProgramNodes,
+    isResourceNodes,
     ModelEntity,
     Person,
+    Resource,
 } from '../types';
 import { compose, getEntityId, snakeToSpace } from '../util';
 
@@ -22,6 +24,8 @@ const resolveDetailComponet = (nodes: HierarchyNode<ModelEntity>[]) => {
         return <ProgramDetailCard nodes={nodes} />;
     } else if (isPeopleNodes(nodes)) {
         return <PersonDetailCard nodes={nodes} />;
+    } else if (isResourceNodes(nodes)) {
+        return <ResourceDetailCard nodes={nodes} />;
     } else return <BaseDetailCard nodes={nodes} />;
 };
 
@@ -59,12 +63,7 @@ const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
                     <Box component="span" fontWeight="bold">
                         Research Interests:{' '}
                     </Box>
-                    {nodes[0].data.research_keywords
-                        .split(/[,;]/)
-                        .map((d, i) =>
-                            i === 0 ? capitalize(d.trim()) : d.trim()
-                        )
-                        .join(', ')}
+                    <KeywordList keywords={nodes[0].data.research_keywords} />
                 </Typography>
             </>
         )}
@@ -75,10 +74,50 @@ const ProgramDetailCard: React.FC<{
     nodes: HierarchyNode<AcademicProgram>[];
 }> = ({ nodes }) => (
     <CardContent>
-        <Typography color="primary" variant="h4">
+        <Typography color="primary" variant="h5">
             {nodes[0].data.name}
         </Typography>
         {!!nodes[0].data.unit && <Typography>{nodes[0].data.unit}</Typography>}
+        {!!nodes[0].data.short_description && (
+            <Typography variant="caption">
+                {nodes[0].data.short_description}
+            </Typography>
+        )}
+        {!!nodes[0].data.key_words_tags && (
+            <>
+                <Divider />
+                <Typography variant="caption">
+                    <Box component="span" fontWeight="bold">
+                        Keywords:{' '}
+                    </Box>
+                    <KeywordList keywords={nodes[0].data.key_words_tags} />
+                </Typography>
+            </>
+        )}
+    </CardContent>
+);
+
+const ResourceDetailCard: React.FC<{
+    nodes: HierarchyNode<Resource>[];
+}> = ({ nodes }) => (
+    <CardContent>
+        <Typography color="primary" variant="h5">
+            {nodes[0].data.name}
+        </Typography>
+        {!!nodes[0].data.institution && (
+            <Typography>{nodes[0].data.institution}</Typography>
+        )}
+        {!!(nodes[0].data.keywords || '').trim() && (
+            <>
+                <Divider />
+                <Typography variant="caption">
+                    <Box component="span" fontWeight="bold">
+                        Keywords:{' '}
+                    </Box>
+                    <KeywordList keywords={nodes[0].data.keywords} />
+                </Typography>
+            </>
+        )}
     </CardContent>
 );
 
@@ -90,6 +129,19 @@ const BaseDetailCard: React.FC<{
             {nodes[0].data.name}
         </Typography>
     </CardContent>
+);
+
+interface KeywordListProps {
+    keywords: string;
+}
+
+const KeywordList: React.FC<KeywordListProps> = ({ keywords }) => (
+    <Box component="span">
+        {keywords
+            .split(/[,;]/)
+            .map((d, i) => (i === 0 ? capitalize(d.trim()) : d.trim()))
+            .join(', ')}
+    </Box>
 );
 
 export default DetailCard;

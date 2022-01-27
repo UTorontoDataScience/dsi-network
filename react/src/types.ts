@@ -26,33 +26,33 @@ export interface Resource extends BaseEntity {
 }
 
 export interface AcademicProgramsDataRaw {
+    alt_links: string;
+    audience: string;
     campus: string;
+    date_if_event_: string;
+    degree_designation: string;
     division: string;
-    unit: string | null; // department, typically
+    hl_response: string;
+    key_words_tags: string;
     program: string;
-    short_name: string;
-    type_education: string;
-    subtype_education: string;
-    work_integrated_learning_experience: string;
-    type_research: string;
-    subtype_research: string;
-    type_resource: string;
+    questions: string;
     resource_subtype_database: string;
     resource_substype_infrastructure: string;
     resource_subtype_service: string;
     resource_subtype_software: string;
     resource_subtype_training: string;
-    type_event_removed: string;
-    degree_designation: string;
     short_description: string;
-    audience: string;
-    key_words_tags: string;
+    subtype_education: string;
+    subtype_research: string;
+    short_name: string;
+    type_education: string;
+    type_event_removed: string;
+    type_research: string;
+    type_resource: string;
+    unit: string | null; // department, typically
     url: string;
-    alt_links: string;
+    work_integrated_learning_experience: string;
     year_established: string;
-    date_if_event_: string;
-    questions: string;
-    hl_response: string;
 }
 
 export interface AcademicProgram extends AcademicProgramsDataRaw, BaseEntity {
@@ -393,7 +393,7 @@ export interface DSINode
 /* typeguards for Person and Program */
 
 export const isPerson = (person: Person | ModelEntity): person is Person =>
-    !!(person as Person).role;
+    'role' in (person as Person);
 
 export const isPeopleNodes = (
     people: HierarchyNode<Person>[] | HierarchyNode<ModelEntity>[]
@@ -402,8 +402,16 @@ export const isPeopleNodes = (
 export const isProgram = (
     program: AcademicProgram | ModelEntity
 ): program is AcademicProgram =>
-    !!(program as AcademicProgram).degree_designation;
+    'degree_designation' in (program as AcademicProgram);
 
 export const isProgramNodes = (
     programs: HierarchyNode<AcademicProgram>[] | HierarchyNode<ModelEntity>[]
 ): programs is HierarchyNode<AcademicProgram>[] => isProgram(programs[0].data);
+
+export const isResource = (
+    resource: Resource | ModelEntity
+): resource is Resource => 'user_fee' in (resource as Resource);
+
+export const isResourceNodes = (
+    resources: HierarchyNode<Resource>[] | HierarchyNode<ModelEntity>[]
+): resources is HierarchyNode<Resource>[] => isResource(resources[0].data);

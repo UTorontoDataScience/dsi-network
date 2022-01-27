@@ -19,7 +19,13 @@ import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import { ForceGraph, PackChart } from '../../Visualizations';
 import { getEntityId, makeTree } from '../../util';
-import { DSINode, isPerson, ModelEntity, Person } from '../../types';
+import {
+    DSINode,
+    isPerson,
+    isProgram,
+    isResource,
+    ModelEntity,
+} from '../../types';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -64,16 +70,25 @@ const ChartPage: React.FC = () => {
         }
     }, [tree0, root]);
 
+    const getKeywords = (node: HierarchyNode<ModelEntity>) =>
+        isPerson(node.data)
+            ? node.data.research_keywords || ''
+            : isResource(node.data)
+            ? node.data.keywords || ''
+            : isProgram(node.data)
+            ? node.data.key_words_tags || ''
+            : '';
+
     const keywords = useMemo(() => {
         if (tree) {
             const keywords = tree
                 .descendants()
-                .filter(d => isPerson(d.data) && !!d.data.research_keywords)
-                .flatMap(p =>
-                    (p.data as Person).research_keywords
+                .flatMap(p => {
+                    const keywords = getKeywords(p);
+                    return keywords
                         .split(/[,;]/)
-                        .map(w => w.trim().toLowerCase())
-                )
+                        .map(w => w.trim().toLowerCase());
+                })
                 .filter(w => w.length < 75)
                 .reduce<{ [key: string]: string[] }>(
                     (acc, curr) => ({
@@ -96,10 +111,10 @@ const ChartPage: React.FC = () => {
             ? tree
                   .descendants()
                   .filter(d => isPerson(d.data) && !!d.data.research_keywords)
-                  .map(p => ({
-                      keywords: (p.data as Person).research_keywords,
-                      type: p.data.type,
-                      id: p.data.id,
+                  .map(m => ({
+                      keywords: getKeywords(m),
+                      type: m.data.type,
+                      id: m.data.id,
                   }))
             : [];
     }, [tree]);
@@ -300,7 +315,7 @@ const ChartPage: React.FC = () => {
                                         <ChartPageAutocomplete
                                             getOptionLabel={o => capitalize(o)}
                                             inputValue={keywordInputString}
-                                            label="Search by research keyword"
+                                            label="Search by keyword"
                                             onInputChange={(value: string) => {
                                                 setKeywordInputString(value);
                                                 resetNameSearchInputs();

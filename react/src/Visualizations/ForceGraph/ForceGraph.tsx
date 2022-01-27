@@ -263,8 +263,8 @@ const registerDragHandler = (
     return handler(selection);
 };
 
-const drawLegend = (selector: string) => {
-    const container = select(selector);
+const drawLegend = (selector: string, theme: Theme) => {
+    const container = select(selector).attr('fill', theme.palette.text.primary);
 
     container
         .selectAll('g.legend')
@@ -371,7 +371,7 @@ class D3ForceGraph {
             .append('rect')
             .attr('width', 100)
             .attr('height', 17)
-            .attr('fill', 'white');
+            .attr('fill', theme.palette.background.default);
 
         zoomIndicator
             .append('text')
@@ -402,11 +402,11 @@ class D3ForceGraph {
             )
             .attr('class', 'control legend-container')
             .append('rect')
+            .attr('fill', theme.palette.background.default)
             .attr('width', '100')
-            .attr('height', '130')
-            .attr('fill', 'white');
+            .attr('height', '130');
 
-        drawLegend('.legend-container');
+        drawLegend('.legend-container', theme);
 
         appendToolTip();
     }
@@ -440,11 +440,7 @@ class D3ForceGraph {
                         .transition()
                         .duration(700)
                         .attr('r', d => (d.selected ? 8 : 5))
-                        .attr('fill', function (d) {
-                            return d.selected
-                                ? '#e7298a'
-                                : select(this).attr('fill');
-                        });
+                        .attr('fill', d => colorScale(d.data.type));
 
                     enterSelection
                         .append('path')
@@ -518,15 +514,17 @@ class D3ForceGraph {
 
     toggleTheme = (theme: Theme) => {
         this.theme = theme;
-        this.svg.selectAll('line').each(function () {
-            select(this).attr('stroke', theme.palette.text.primary);
+        this.svg.selectAll('line').attr('stroke', theme.palette.text.primary);
+        this.svg.selectAll('circle').attr('stroke', function () {
+            return select(this).attr('strok')
+                ? theme.palette.text.primary
+                : null;
         });
-        this.svg.selectAll('circle').each(function () {
-            select(this).attr(
-                'stroke',
-                select(this).attr('stroke') ? theme.palette.text.primary : null
-            );
-        });
+        this.svg.selectAll('text').attr('fill', theme.palette.text.primary);
+
+        this.svg
+            .selectAll('rect')
+            .attr('fill', theme.palette.background.default);
     };
 
     update = (tree: DSINode) => {

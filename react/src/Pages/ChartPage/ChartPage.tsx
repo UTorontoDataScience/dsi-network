@@ -17,7 +17,11 @@ import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
-import { ForceGraph, PackChart } from '../../Visualizations';
+import {
+    ForceGraph,
+    PackChart,
+    ScrollableBarChart,
+} from '../../Visualizations';
 import { getEntityId, makeTree } from '../../util';
 import {
     DSINode,
@@ -70,26 +74,51 @@ const ChartPage: React.FC = () => {
         }
     }, [tree0, root]);
 
-    const getKeywords = (node: HierarchyNode<ModelEntity>) =>
-        isPerson(node.data)
-            ? node.data.research_keywords || ''
-            : isResource(node.data)
-            ? node.data.keywords || ''
-            : isProgram(node.data)
-            ? node.data.key_words_tags || ''
+    const getKeywords = (node: ModelEntity) =>
+        isPerson(node)
+            ? node.research_keywords || ''
+            : isResource(node)
+            ? node.keywords || ''
+            : isProgram(node)
+            ? node.key_words_tags || ''
             : '';
+
+    const barChartKeywords = useMemo(() => {
+        if (model) {
+            const counts = Object.values(model)
+                .flatMap(e =>
+                    getKeywords(e)
+                        .split(/[;,]/)
+                        .map(d => d.trim().replace(/ +/g, ' '))
+                )
+                .filter(w => !!w && w.length < 40)
+                .reduce<Record<string, number>>(
+                    (acc, curr) => ({
+                        ...acc,
+                        [curr.toLowerCase()]: acc[curr.toLowerCase()]
+                            ? acc[curr.toLowerCase()] + 1
+                            : 1,
+                    }),
+                    {}
+                );
+
+            return Object.entries(counts)
+                .filter(([_, v]) => v > 1)
+                .map(([label, value]) => ({ label, value }));
+        }
+    }, [model]);
 
     const keywords = useMemo(() => {
         if (tree) {
             const keywords = tree
                 .descendants()
                 .flatMap(p => {
-                    const keywords = getKeywords(p);
+                    const keywords = getKeywords(p.data);
                     return keywords
+                        .replace(/ +/g, ' ')
                         .split(/[,;]/)
                         .map(w => w.trim().toLowerCase());
                 })
-                .filter(w => w.length < 75)
                 .reduce<{ [key: string]: string[] }>(
                     (acc, curr) => ({
                         ...acc,
@@ -98,11 +127,14 @@ const ChartPage: React.FC = () => {
                     {}
                 );
 
-            return Object.entries(keywords)
-                .filter(a => a[1].length > 1)
-                .map(([k]) => k)
-                .filter(Boolean)
-                .sort((a, b) => (a === '' ? 1 : a < b ? -1 : 1));
+            return (
+                Object.entries(keywords)
+                    // filter out any singletons, which are often misspellings, whitespace-separated lists, etc.
+                    .filter(a => a[1].length > 1)
+                    .map(([k]) => k)
+                    .filter(Boolean)
+                    .sort((a, b) => (a === '' ? 1 : a < b ? -1 : 1))
+            );
         }
     }, [tree]);
 
@@ -112,7 +144,7 @@ const ChartPage: React.FC = () => {
                   .descendants()
                   .filter(d => isPerson(d.data) && !!d.data.research_keywords)
                   .map(m => ({
-                      keywords: getKeywords(m),
+                      keywords: getKeywords(m.data),
                       type: m.data.type,
                       id: m.data.id,
                   }))
@@ -176,13 +208,9 @@ const ChartPage: React.FC = () => {
                 >
                     <Tab label="Tree View" />
                     <Tab label="Nested View" />
+                    <Tab label="Scrollable Bar" />
                 </Tabs>
             </Grid>
-            {activeTab === 1 && (
-                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
-                    {model && <PackChart entities={model} />}
-                </Grid>
-            )}
             {activeTab === 0 && (
                 <Grid container direction="row" item spacing={3}>
                     <Grid
@@ -354,6 +382,18 @@ const ChartPage: React.FC = () => {
                             )}
                         </Grid>
                     </Grid>
+                </Grid>
+            )}
+            {activeTab === 1 && (
+                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
+                    {model && <PackChart entities={model} />}
+                </Grid>
+            )}
+            {activeTab === 2 && (
+                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
+                    {barChartKeywords && (
+                        <ScrollableBarChart data={barChartKeywords} />
+                    )}
                 </Grid>
             )}
         </Grid>

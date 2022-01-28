@@ -22,9 +22,9 @@ const ScrollableBarChart: React.FC<ScrollableBarChartProps> = ({ data }) => {
 
     useEffect(() => {
         if (data) {
-            const Chart = new ScrollableBar(`#${id}`, data, theme);
+            new ScrollableBar(`#${id}`, data, theme);
         }
-    }, [data]);
+    }, [data, theme]);
 
     return <Box width="500px" height="500px" id={id} />;
 };
@@ -95,7 +95,7 @@ class ScrollableBar {
 
         this.zoomBehavior = zoom().on(
             'zoom',
-            (e: D3ZoomEvent<SVGSVGElement, unknown>, b) => {
+            (e: D3ZoomEvent<SVGSVGElement, unknown>) => {
                 e.sourceEvent.deltaY > 0
                     ? this.incrementChart()
                     : this.decrementChart();

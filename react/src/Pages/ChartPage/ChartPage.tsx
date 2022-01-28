@@ -103,7 +103,7 @@ const ChartPage: React.FC = () => {
                 );
 
             return Object.entries(counts)
-                .filter(([_, v]) => v > 1)
+                .filter(v => v[1] > 1)
                 .map(([label, value]) => ({ label, value }));
         }
     }, [model]);

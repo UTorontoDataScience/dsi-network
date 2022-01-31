@@ -3,7 +3,7 @@ import { Box, capitalize, Theme, useTheme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { scaleOrdinal } from 'd3-scale';
+import { scaleLinear, scaleOrdinal } from 'd3-scale';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import { D3ZoomEvent, zoom, zoomIdentity, zoomTransform } from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
@@ -133,8 +133,11 @@ const entityTypes: EntityType[] = [
 ];
 
 const colorScale = scaleOrdinal(
-    schemeCategory10.filter((_, i) => i !== 3) //remove red, since that's our highlight color
+    //remove red, since that's our highlight color
+    schemeCategory10.filter((_, i) => i !== 3)
 ).domain(entityTypes);
+
+const nodeSizeScale = scaleLinear().domain([0, 250]).range([5, 10]);
 
 interface DSINode
     extends Record<string, any>,
@@ -411,14 +414,38 @@ class D3ForceGraph {
         appendToolTip();
     }
 
-    appendLinks = (forceLinks: DSIForceLinks) =>
-        this.svg
+    appendLinks = (forceLinks: DSIForceLinks) => {
+        const selection = this.svg
             .select<SVGGElement>('g.line-container')
             .selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line')
             .data(forceLinks.links(), makeLinkKey)
-            .attr('class', 'chart')
-            .join('line')
-            .attr('stroke', this.theme.palette.text.primary);
+            .join(
+                enter => {
+                    const enterSelection = enter
+                        .append('line')
+                        .attr('class', 'chart')
+                        .attr('opacity', d =>
+                            (d.target as DSINode).data.type === 'person' ? 0 : 1
+                        )
+                        .attr('stroke', this.theme.palette.text.primary);
+
+                    enterSelection
+                        .transition()
+                        .duration(2000)
+                        .attr('opacity', function (d) {
+                            return (d.target as DSINode).data.type ===
+                                'person' && (d.target as DSINode).selected
+                                ? 1
+                                : select(this).attr('opacity');
+                        });
+                    return enterSelection;
+                },
+                update => update,
+                exit => exit.remove()
+            );
+
+        return selection;
+    };
 
     appendNodes = (nodes: DSINode[], simulation: DSISimulation) => {
         const nodeSelection = this.svg
@@ -433,14 +460,23 @@ class D3ForceGraph {
 
                     enterSelection
                         .append('circle')
-                        .attr('fill', d => colorScale(d.data.type))
-                        .attr('stroke', d =>
-                            d.children ? this.theme.palette.text.primary : null
+                        .attr('opacity', d =>
+                            d.data.type === 'person' ? 0 : 1
                         )
+                        .attr('r', d => nodeSizeScale(d.descendants().length))
+                        .attr('fill', d => colorScale(d.data.type))
+                        .attr('stroke', d => {
+                            return d.children
+                                ? this.theme.palette.text.primary
+                                : null;
+                        })
                         .transition()
                         .duration(700)
-                        .attr('r', d => (d.selected ? 8 : 5))
-                        .attr('fill', d => colorScale(d.data.type));
+                        .attr('opacity', function (d) {
+                            return d.data.type === 'person' && d.selected
+                                ? 1
+                                : select(this).attr('opacity');
+                        });
 
                     enterSelection
                         .append('path')
@@ -516,7 +552,7 @@ class D3ForceGraph {
         this.theme = theme;
         this.svg.selectAll('line').attr('stroke', theme.palette.text.primary);
         this.svg.selectAll('circle').attr('stroke', function () {
-            return select(this).attr('strok')
+            return select(this).attr('stroke')
                 ? theme.palette.text.primary
                 : null;
         });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, capitalize, Theme, useTheme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
@@ -19,7 +19,7 @@ import {
     SimulationNodeDatum,
 } from 'd3-force';
 import { EntityType, ModelEntity } from '../../types';
-import { getEntityId, mapTree } from '../../util';
+import { getEntityId, groupBy, mapTree } from '../../util';
 
 // for debugging
 (window as any).d3Select = select;
@@ -37,14 +37,12 @@ export interface SelectedModel {
 }
 interface ForceGraphProps {
     containerWidth: number;
-    selectedModels: SelectedModel[];
     tree: HierarchyNode<ModelEntity>;
     selectedCallback: (node: DSINode) => void;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     containerWidth,
-    selectedModels,
     tree,
     selectedCallback,
 }) => {
@@ -75,10 +73,13 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         }
     }, [theme, Graph]);
 
-    /* replace */
+    /* replace graphic entirely when root changes */
     useEffect(() => {
-        if (Graph && tree !== Graph.tree) {
+        if (Graph && getEntityId(Graph.tree.data) !== getEntityId(tree.data)) {
+            console.log('redrawing');
+
             selectAll('svg').remove();
+
             const Graph = new D3ForceGraph(
                 targetId,
                 theme,
@@ -87,31 +88,10 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             );
             Graph.render();
             setGraph(Graph);
+        } else {
+            Graph?.update(tree);
         }
-    }, [tree, Graph, theme, selectedCallback]);
-
-    /* highlight selected models */
-    useEffect(() => {
-        if (Graph) {
-            const selectedMap = selectedModels.reduce<Record<string, boolean>>(
-                (acc, curr) => ({
-                    ...acc,
-                    [`${curr.type}-${curr.id}`]: true,
-                }),
-                {}
-            );
-
-            // clone tree to prevent mutating bound data,
-            // causing d3 to not register enter selection
-            const mapped = mapTree(tree, t => ({
-                ...t,
-                selected: selectedMap[getEntityId(t.data)],
-            }));
-
-            Graph.update(mapped);
-        }
-        /* eslint-disable-next-line react-hooks/exhaustive-deps  */
-    }, [selectedModels, tree]);
+    }, [tree]);
 
     return containerWidth ? (
         <Box
@@ -236,7 +216,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.1).restart();
+        simulation.alphaTarget(0.01).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -563,25 +543,39 @@ class D3ForceGraph {
             .attr('fill', theme.palette.background.default);
     };
 
-    update = (tree: DSINode) => {
-        // uncomment only if adding new nodes/links
-        const forceLinks = buildForceLinks(tree.links()); /* .links(
-            tree.links().map(l => ({
-                source: makeNodeKey(l.source),
-                target: makeNodeKey(l.target),
-            }))
-        ); */
+    update = (_tree: DSINode) => {
+        // map previous locations to new nodes
+        const simNodeLocationMap = this.simulation!.nodes().reduce<
+            Record<string, SimulationNodeDatum>
+        >(
+            (acc, curr) => ({
+                ...acc,
+                [curr.id!]: {
+                    x: curr.x,
+                    fx: curr.fx,
+                    vx: curr.vx,
+                    y: curr.y,
+                    fy: curr.fy,
+                    vy: curr.vy,
+                },
+            }),
+            {}
+        );
+
+        const tree: DSINode = mapTree(_tree, n => ({
+            ...n,
+            ...simNodeLocationMap[getEntityId(n.data)],
+        }));
+
+        const forceLinks = buildForceLinks(tree.links());
 
         //fix coordinates of unselected nodes
-        tree.eachAfter(n => {
-            if (n.children && n.children.find(n => n.selected)) {
-                n.children.forEach(n => {
-                    n.fx = null;
-                    n.fy = null;
-                });
-            } else {
+        tree.each(n => {
+            if (!n.selected) {
                 n.fx = n.x;
                 n.fy = n.y;
+            } else {
+                console.log(n);
             }
         });
 
@@ -592,15 +586,17 @@ class D3ForceGraph {
         this.simulation?.force('links', forceLinks);
 
         const linkSelection = this.appendLinks(forceLinks);
-        const nodSelection = this.appendNodes(
+        const nodeSelection = this.appendNodes(
             this.simulation!.nodes(),
             this.simulation!
         );
 
-        //since references have been broken w/ previous data, we need to reregister handler w/ new selections
-        registerTickHandler(this.simulation!, linkSelection, nodSelection);
+        //todo: if only one selected node, zoom in to neighborhood
 
-        this.simulation?.alpha(0.01);
+        //since references have been broken w/ previous data, we need to reregister handler w/ new selections
+        registerTickHandler(this.simulation!, linkSelection, nodeSelection);
+
+        this.simulation?.alpha(0.2);
         this.simulation?.restart();
     };
 }

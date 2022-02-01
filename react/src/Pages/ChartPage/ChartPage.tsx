@@ -238,7 +238,7 @@ const ChartPage: React.FC = () => {
                         {tree && containerWidth && (
                             <ForceGraph
                                 containerWidth={containerWidth}
-                                selectedCallback={(node: DSINode) =>
+                                selectedCallback={(node: DSINode) => {
                                     setDetailSelection(
                                         tree0!
                                             .descendants()
@@ -247,8 +247,9 @@ const ChartPage: React.FC = () => {
                                                     m.data.name ===
                                                     node.data.name
                                             )
-                                    )
-                                }
+                                    );
+                                    setNameSearchInputString(node.data.name);
+                                }}
                                 tree={tree}
                             />
                         )}

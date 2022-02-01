@@ -113,8 +113,9 @@ const entityTypes: EntityType[] = [
 ];
 
 const colorScale = scaleOrdinal(
-    //remove red, since that's our highlight color
-    schemeCategory10.filter((_, i) => i !== 3)
+    // remove red, since that's our highlight color
+    // and removed gray, since it's close to dark font
+    schemeCategory10.filter((_, i) => ![3, 7].includes(i))
 ).domain(entityTypes);
 
 const nodeSizeScale = scaleLinear().domain([0, 250]).range([5, 10]);
@@ -408,7 +409,6 @@ class D3ForceGraph {
                 update => update,
                 function (exit) {
                     exit.transition()
-                        .transition()
                         .duration(250)
                         .ease(easeCubicIn)
                         .attr('opacity', 0)
@@ -449,7 +449,7 @@ class D3ForceGraph {
                                 : null;
                         })
                         .transition()
-                        .duration(700)
+                        .duration(500)
                         .attr('opacity', function (d) {
                             return d.data.type === 'person' && d.selected
                                 ? 1
@@ -461,16 +461,45 @@ class D3ForceGraph {
                         .attr('d', 'M -8 0 A 8 8, 0, 1, 0, 0 8 L 0 0 Z')
                         .attr('fill', 'red')
                         .attr('stroke', 'black')
-                        .attr('opacity', 0)
+                        .attr('stroke-width', 0)
+                        .attr('fill-opacity', 0)
                         .transition()
-                        .duration(700)
-                        .style('opacity', d => (d.selected ? 1 : 0));
+                        .duration(500)
+                        .attr('fill-opacity', d => (d.selected ? 1 : 0))
+                        .attr('stroke-width', d => (d.selected ? 2 : 0));
+
+                    enterSelection
+                        .filter(
+                            n =>
+                                ['campus', 'institution', 'division'].includes(
+                                    n.data.type
+                                ) &&
+                                n.descendants().length /
+                                    this.tree.descendants().length >
+                                    0.1
+                        )
+                        .append('text')
+                        .attr('fill', this.theme.palette.text.primary)
+                        .attr('opacity', 0)
+                        .text(d => d.data.name)
+                        .attr('text-anchor', 'middle')
+                        .style('user-select', 'none')
+                        .transition()
+                        .duration(500)
+                        .style('opacity', 0.5);
 
                     return enterSelection;
                 },
                 update => update,
-                exit =>
-                    exit.transition().duration(1000).attr('opacity', 0).remove()
+                exit => {
+                    exit.select('circle')
+                        .transition()
+                        .duration(500)
+                        .attr('opacity', 0)
+                        .remove();
+
+                    exit.remove();
+                }
             )
             //ensure selected are in "front"
             .sort(a => (a.selected ? 1 : -1));
@@ -494,7 +523,7 @@ class D3ForceGraph {
                 'charge',
                 forceManyBody()
                     .strength(-25)
-                    .distanceMax(w / 4)
+                    .distanceMax(w / 3)
             )
             .force('links', forceLinks.distance(w / 50).strength(1))
             .force('collision', forceCollide().radius(6))

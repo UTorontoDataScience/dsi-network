@@ -22,7 +22,7 @@ import {
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
-import { getEntityId, makeTree, mapTree } from '../../util';
+import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
 import {
     DSINode,
     isPerson,
@@ -60,7 +60,7 @@ const ChartPage: React.FC = () => {
     }, []);
 
     /* 
-        Our base tree, which won't be used for visualizations but for retrieving all descendants of current root,
+        Base tree, which won't be used for visualizations but rather for retrieving all possible descendants of current root,
           including those not in the current graph (e.g., unselected people).
      */
     const tree0 = useMemo(() => {
@@ -75,30 +75,27 @@ const ChartPage: React.FC = () => {
         }
     }, [model, root]);
 
-    /* tree with latest root */
+    /* tree with selected models attached */
     const tree = useMemo(() => {
-        if (root && model) {
+        if (tree0) {
             const selectedMap = groupBy(selected, m => `${m.type}-${m.id}`);
 
-            const modelEntities = Object.values(model)
-                .flat()
+            const modelEntities = tree0
+                .descendants()
+                .map(d => d.data)
                 .filter(
                     m => m.type !== 'person' || selectedMap[getEntityId(m)]
                 );
 
-            const rootModel = Object.values(model)
-                .flat()
-                .find(m => m.type === root.type && m.id === root.id)!;
+            const _tree = stratifyFn(modelEntities);
 
-            const _tree = makeTree(modelEntities, rootModel);
-
-            /* redundant to map, but I don't love putting a "selected" attribute on the model itself */
+            /* redundant to map, but for now an easy alternative to putting a `selected` attribute on the model itself */
             return mapTree(_tree, t => ({
                 ...t,
                 selected: !!selectedMap[getEntityId(t.data)],
             }));
         }
-    }, [model, root, selected]);
+    }, [tree0, selected]);
 
     const getKeywords = (node: ModelEntity) =>
         isPerson(node)

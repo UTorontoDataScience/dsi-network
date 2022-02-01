@@ -471,12 +471,13 @@ class D3ForceGraph {
                     enterSelection
                         .filter(
                             n =>
-                                ['campus', 'institution', 'division'].includes(
-                                    n.data.type
-                                ) &&
-                                n.descendants().length /
+                                ['campus', 'network'].includes(n.data.type) ||
+                                (n.descendants().length /
                                     this.tree.descendants().length >
-                                    0.1
+                                    0.05 &&
+                                    ['division', 'institution'].includes(
+                                        n.data.type
+                                    ))
                         )
                         .append('text')
                         .attr('fill', this.theme.palette.text.primary)
@@ -522,7 +523,7 @@ class D3ForceGraph {
             .force(
                 'charge',
                 forceManyBody()
-                    .strength(-25)
+                    .strength(-50)
                     .distanceMax(w / 3)
             )
             .force('links', forceLinks.distance(w / 50).strength(1))

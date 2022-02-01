@@ -197,24 +197,16 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     const resetKeywordInputs = () => {
-        if (keywordInputString) {
-            setKeywordInputString('');
-        }
-        if (selectedKeyword) {
-            setSelectedKeyword('');
-        }
-        if (detailSelection.length) {
-            setDetailSelection([]);
-        }
+        setKeywordInputString('');
+        setSelectedKeyword('');
+        setDetailSelection([]);
+        setSelected([]);
     };
 
     const resetNameSearchInputs = () => {
-        if (nameSearchInputString) {
-            setNameSearchInputString('');
-        }
-        if (detailSelection.length) {
-            setDetailSelection([]);
-        }
+        setNameSearchInputString('');
+        setDetailSelection([]);
+        setSelected([]);
     };
 
     return (
@@ -277,8 +269,8 @@ const ChartPage: React.FC = () => {
                                                             e.target.value
                                                 )
                                             );
-                                            setSelected([]);
-                                            setDetailSelection([]);
+                                            resetKeywordInputs();
+                                            resetNameSearchInputs();
                                         }}
                                         value={root ? getEntityId(root) : ''}
                                     >

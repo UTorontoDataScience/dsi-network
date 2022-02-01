@@ -39,14 +39,14 @@ const filterEntities = (entities: ModelEntity[], root: ModelEntity) => {
         .map(e => JSON.parse(JSON.stringify(e)));
 };
 
+export const stratifyFn = stratify<ModelEntity>()
+    .id(getEntityId)
+    .parentId(p =>
+        p.parentId && p.parentType ? `${p.parentType}-${p.parentId}` : null
+    );
+
 /* before we can pass the tree to stratify, we need to prune orphans */
 export const makeTree = (entities: ModelEntity[], root: ModelEntity) => {
-    const stratifyFn = stratify<ModelEntity>()
-        .id(getEntityId)
-        .parentId(p =>
-            p.parentId && p.parentType ? `${p.parentType}-${p.parentId}` : null
-        );
-
     const filtered = filterEntities(entities, root);
 
     const newRoot = filtered.find(m => getEntityId(m) === getEntityId(root))!;

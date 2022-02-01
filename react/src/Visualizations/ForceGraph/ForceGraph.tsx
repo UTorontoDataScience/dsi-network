@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, capitalize, Theme, useTheme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
+import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
 import { scaleLinear, scaleOrdinal } from 'd3-scale';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
@@ -19,7 +20,7 @@ import {
     SimulationNodeDatum,
 } from 'd3-force';
 import { EntityType, ModelEntity } from '../../types';
-import { getEntityId, groupBy, mapTree } from '../../util';
+import { getEntityId, mapTree } from '../../util';
 
 // for debugging
 (window as any).d3Select = select;
@@ -76,8 +77,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     /* replace graphic entirely when root changes */
     useEffect(() => {
         if (Graph && getEntityId(Graph.tree.data) !== getEntityId(tree.data)) {
-            console.log('redrawing');
-
             selectAll('svg').remove();
 
             const Graph = new D3ForceGraph(
@@ -91,6 +90,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         } else {
             Graph?.update(tree);
         }
+        /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [tree]);
 
     return containerWidth ? (
@@ -141,23 +141,6 @@ const makeLinkKey = <T extends DSINode>(link: SimulationLinkDatum<T>) => {
     const target = link.target as DSINode;
     return `${source.data.id}-${source.parent?.id}-${target.selected}-${target.data.id}`;
 };
-
-const buildSimulation = (
-    nodes: DSINode[],
-    w: number,
-    forceLinks: DSIForceLinks
-) =>
-    forceSimulation<DSINode>(nodes)
-        .force(
-            'charge',
-            forceManyBody()
-                .strength(-25)
-                .distanceMax(w / 4)
-        )
-        .force('links', forceLinks.distance(w / 50).strength(1))
-        .force('collision', forceCollide().radius(6))
-        .force('center', forceCenter())
-        .velocityDecay(0.4);
 
 const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
     forceLink<DSINode, SimulationLinkDatum<DSINode>>(links).id(model =>
@@ -289,7 +272,7 @@ class D3ForceGraph {
     h: number;
     selector: string;
     svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
-    simulation?: DSISimulation;
+    simulation: DSISimulation;
     theme: Theme;
     tree: DSINode;
     updateCallback: (node: DSINode) => void;
@@ -310,6 +293,8 @@ class D3ForceGraph {
             .attr('class', 'main')
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h]);
         this.updateCallback = updateCallback;
+
+        this.simulation = forceSimulation();
 
         this.svg
             .append('g')
@@ -411,7 +396,7 @@ class D3ForceGraph {
 
                     enterSelection
                         .transition()
-                        .duration(2000)
+                        .duration(1000)
                         .attr('opacity', function (d) {
                             return (d.target as DSINode).data.type ===
                                 'person' && (d.target as DSINode).selected
@@ -421,7 +406,20 @@ class D3ForceGraph {
                     return enterSelection;
                 },
                 update => update,
-                exit => exit.remove()
+                function (exit) {
+                    exit.transition()
+                        .transition()
+                        .duration(250)
+                        .ease(easeCubicIn)
+                        .attr('opacity', 0)
+                        .attr('x2', function () {
+                            return select(this).attr('x1');
+                        })
+                        .attr('y2', function () {
+                            return select(this).attr('y1');
+                        })
+                        .remove();
+                }
             );
 
         return selection;
@@ -460,7 +458,7 @@ class D3ForceGraph {
 
                     enterSelection
                         .append('path')
-                        .attr('d', 'M -15 0 A 15 15, 0, 1, 0, 0 15 L 0 0 Z')
+                        .attr('d', 'M -8 0 A 8 8, 0, 1, 0, 0 8 L 0 0 Z')
                         .attr('fill', 'red')
                         .attr('stroke', 'black')
                         .attr('opacity', 0)
@@ -471,7 +469,8 @@ class D3ForceGraph {
                     return enterSelection;
                 },
                 update => update,
-                exit => exit.remove()
+                exit =>
+                    exit.transition().duration(1000).attr('opacity', 0).remove()
             )
             //ensure selected are in "front"
             .sort(a => (a.selected ? 1 : -1));
@@ -483,6 +482,24 @@ class D3ForceGraph {
 
         return nodeSelection;
     };
+
+    buildSimulation = (
+        nodes: DSINode[],
+        w: number,
+        forceLinks: DSIForceLinks
+    ) =>
+        this.simulation
+            .nodes(nodes)
+            .force(
+                'charge',
+                forceManyBody()
+                    .strength(-25)
+                    .distanceMax(w / 4)
+            )
+            .force('links', forceLinks.distance(w / 50).strength(1))
+            .force('collision', forceCollide().radius(6))
+            .force('center', forceCenter())
+            .velocityDecay(0.4);
 
     registerClickZoom = (selection: DSINodeSelection) => {
         const nodeZoom = zoom<SVGSVGElement, unknown>()
@@ -511,11 +528,7 @@ class D3ForceGraph {
         if (this.tree) {
             const forceLinks = buildForceLinks(this.tree.links());
 
-            this.simulation = buildSimulation(
-                this.tree.descendants(),
-                this.w,
-                forceLinks
-            );
+            this.buildSimulation(this.tree.descendants(), this.w, forceLinks);
 
             const nodeSelection = this.appendNodes(
                 this.simulation.nodes(),
@@ -552,10 +565,8 @@ class D3ForceGraph {
                 ...acc,
                 [curr.id!]: {
                     x: curr.x,
-                    fx: curr.fx,
                     vx: curr.vx,
                     y: curr.y,
-                    fy: curr.fy,
                     vy: curr.vy,
                 },
             }),
@@ -564,7 +575,11 @@ class D3ForceGraph {
 
         const tree: DSINode = mapTree(_tree, n => ({
             ...n,
-            ...simNodeLocationMap[getEntityId(n.data)],
+            ...(simNodeLocationMap[getEntityId(n.data)]
+                ? simNodeLocationMap[getEntityId(n.data)]
+                : // b/c we are inserting/removing only leaf nodes,
+                  // we can confidently set the starting position to the parent's for a smooter entry
+                  simNodeLocationMap[getEntityId(n.parent!.data)]),
         }));
 
         const forceLinks = buildForceLinks(tree.links());
@@ -574,16 +589,14 @@ class D3ForceGraph {
             if (!n.selected) {
                 n.fx = n.x;
                 n.fy = n.y;
-            } else {
-                console.log(n);
             }
         });
 
         // stop sim to prevent timing issues
-        this.simulation?.stop();
+        this.simulation.stop();
 
-        this.simulation?.nodes(tree.descendants());
-        this.simulation?.force('links', forceLinks);
+        this.simulation.nodes(tree.descendants());
+        this.simulation.force('links', forceLinks);
 
         const linkSelection = this.appendLinks(forceLinks);
         const nodeSelection = this.appendNodes(
@@ -591,12 +604,12 @@ class D3ForceGraph {
             this.simulation!
         );
 
-        //todo: if only one selected node, zoom in to neighborhood
-
         //since references have been broken w/ previous data, we need to reregister handler w/ new selections
         registerTickHandler(this.simulation!, linkSelection, nodeSelection);
 
-        this.simulation?.alpha(0.2);
-        this.simulation?.restart();
+        this.simulation.force('center', null);
+        this.simulation.alpha(0.3);
+        //this.simulation.alphaTarget(0);
+        this.simulation.restart();
     };
 }

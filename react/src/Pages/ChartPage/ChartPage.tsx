@@ -135,8 +135,8 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     const keywords = useMemo(() => {
-        if (tree) {
-            const keywords = tree
+        if (tree0) {
+            const keywords = tree0
                 .descendants()
                 .flatMap(p => {
                     const keywords = getKeywords(p.data);
@@ -162,7 +162,7 @@ const ChartPage: React.FC = () => {
                     .sort((a, b) => (a === '' ? 1 : a < b ? -1 : 1))
             );
         }
-    }, [tree]);
+    }, [tree0]);
 
     const SelectableByKeyword = useMemo(() => {
         return tree0
@@ -179,8 +179,8 @@ const ChartPage: React.FC = () => {
 
     /* don't pass in nodes b/c autocomplete converts to JSON and you'll get circular errors */
     const names = useMemo(() => {
-        if (tree) {
-            return tree
+        if (tree0) {
+            return tree0
                 ?.descendants()
                 .filter(uniqueBy(d => d.data.name))
                 .map(v => v.data.name)
@@ -189,7 +189,7 @@ const ChartPage: React.FC = () => {
         } else {
             return [];
         }
-    }, [tree]);
+    }, [tree0]);
 
     const nameMap = useMemo(() => {
         if (model) {
@@ -329,7 +329,7 @@ const ChartPage: React.FC = () => {
                                             onSelect={(value?: string) => {
                                                 if (value) {
                                                     setDetailSelection(
-                                                        tree!
+                                                        tree0!
                                                             .descendants()
                                                             .filter(
                                                                 m =>

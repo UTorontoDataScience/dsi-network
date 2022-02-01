@@ -193,7 +193,7 @@ const registerDragHandler = (
     simulation: DSISimulation
 ) => {
     const dragstarted = (
-        e: D3DragEvent<SVGCircleElement, DSINode, unknown>,
+        e: D3DragEvent<SVGGElement, DSINode, unknown>,
         d: DSINode
     ) => {
         simulation.nodes().forEach(n => {
@@ -206,7 +206,7 @@ const registerDragHandler = (
     };
 
     const dragged = (
-        e: D3DragEvent<SVGCircleElement, DSINode, unknown>,
+        e: D3DragEvent<SVGGElement, DSINode, unknown>,
         d: DSINode
     ) => {
         d.fx = e.x;
@@ -214,7 +214,7 @@ const registerDragHandler = (
     };
 
     const dragended = (
-        e: D3DragEvent<SVGCircleElement, DSINode, unknown>,
+        e: D3DragEvent<SVGGElement, DSINode, unknown>,
         d: DSINode
     ) => {
         if (!e.active) simulation.alphaTarget(0);
@@ -425,50 +425,18 @@ class D3ForceGraph {
         return selection;
     };
 
-    appendNodes = (nodes: DSINode[], simulation: DSISimulation) => {
+    appendNodes = (nodes: DSINode[]) => {
         const nodeSelection = this.svg
             .select('g.circle-container')
             .selectAll<SVGGElement, DSINode>('g.circle-node')
             .data(nodes, (d, i) => (d ? makeNodeKey(d) : i))
             .join(
                 enter => {
-                    const enterSelection = enter
+                    const outerContainer = enter
                         .append('g')
                         .attr('class', 'circle-node');
 
-                    enterSelection
-                        .append('circle')
-                        .attr('opacity', d =>
-                            d.data.type === 'person' ? 0 : 1
-                        )
-                        .attr('r', d => nodeSizeScale(d.descendants().length))
-                        .attr('fill', d => colorScale(d.data.type))
-                        .attr('stroke', d => {
-                            return d.children
-                                ? this.theme.palette.text.primary
-                                : null;
-                        })
-                        .transition()
-                        .duration(500)
-                        .attr('opacity', function (d) {
-                            return d.data.type === 'person' && d.selected
-                                ? 1
-                                : select(this).attr('opacity');
-                        });
-
-                    enterSelection
-                        .append('path')
-                        .attr('d', 'M -8 0 A 8 8, 0, 1, 0, 0 8 L 0 0 Z')
-                        .attr('fill', 'red')
-                        .attr('stroke', 'black')
-                        .attr('stroke-width', 0)
-                        .attr('fill-opacity', 0)
-                        .transition()
-                        .duration(500)
-                        .attr('fill-opacity', d => (d.selected ? 1 : 0))
-                        .attr('stroke-width', d => (d.selected ? 2 : 0));
-
-                    enterSelection
+                    outerContainer
                         .filter(
                             n =>
                                 ['campus', 'network'].includes(n.data.type) ||
@@ -489,7 +457,45 @@ class D3ForceGraph {
                         .duration(500)
                         .style('opacity', 0.5);
 
-                    return enterSelection;
+                    outerContainer.call(registerDragHandler, this.simulation);
+
+                    const enterNodeSelection = outerContainer
+                        .append('g')
+                        .attr('class', 'interactive-area');
+
+                    enterNodeSelection
+                        .append('circle')
+                        .attr('opacity', d =>
+                            d.data.type === 'person' ? 0 : 1
+                        )
+                        .attr('r', d => nodeSizeScale(d.descendants().length))
+                        .attr('fill', d => colorScale(d.data.type))
+                        .attr('stroke', d => {
+                            return d.children
+                                ? this.theme.palette.text.primary
+                                : null;
+                        })
+                        .transition()
+                        .duration(500)
+                        .attr('opacity', function (d) {
+                            return d.data.type === 'person' && d.selected
+                                ? 1
+                                : select(this).attr('opacity');
+                        });
+
+                    enterNodeSelection
+                        .append('path')
+                        .attr('d', 'M -8 0 A 8 8, 0, 1, 0, 0 8 L 0 0 Z')
+                        .attr('fill', 'red')
+                        .attr('stroke', 'black')
+                        .attr('stroke-width', 0)
+                        .attr('fill-opacity', 0)
+                        .transition()
+                        .duration(500)
+                        .attr('fill-opacity', d => (d.selected ? 1 : 0))
+                        .attr('stroke-width', d => (d.selected ? 2 : 0));
+
+                    return outerContainer;
                 },
                 update => update,
                 exit => {
@@ -506,10 +512,9 @@ class D3ForceGraph {
             .sort(a => (a.selected ? 1 : -1));
 
         nodeSelection
+            .selectAll<SVGGElement, DSINode>('g.interactive-area')
             .call(registerToolTip)
-            .call(registerDragHandler, simulation)
             .call(this.registerClickZoom, this.svg);
-
         return nodeSelection;
     };
 
@@ -560,10 +565,7 @@ class D3ForceGraph {
 
             this.buildSimulation(this.tree.descendants(), this.w, forceLinks);
 
-            const nodeSelection = this.appendNodes(
-                this.simulation.nodes(),
-                this.simulation
-            );
+            const nodeSelection = this.appendNodes(this.simulation.nodes());
 
             const linkSelection = this.appendLinks(forceLinks);
 
@@ -629,10 +631,7 @@ class D3ForceGraph {
         this.simulation.force('links', forceLinks);
 
         const linkSelection = this.appendLinks(forceLinks);
-        const nodeSelection = this.appendNodes(
-            this.simulation!.nodes(),
-            this.simulation!
-        );
+        const nodeSelection = this.appendNodes(this.simulation!.nodes());
 
         //since references have been broken w/ previous data, we need to reregister handler w/ new selections
         registerTickHandler(this.simulation!, linkSelection, nodeSelection);

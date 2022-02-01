@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Box, capitalize, Theme, useTheme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
+import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { scaleOrdinal } from 'd3-scale';
+import { scaleLinear, scaleOrdinal } from 'd3-scale';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import { D3ZoomEvent, zoom, zoomIdentity, zoomTransform } from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
@@ -37,14 +38,12 @@ export interface SelectedModel {
 }
 interface ForceGraphProps {
     containerWidth: number;
-    selectedModels: SelectedModel[];
     tree: HierarchyNode<ModelEntity>;
     selectedCallback: (node: DSINode) => void;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     containerWidth,
-    selectedModels,
     tree,
     selectedCallback,
 }) => {
@@ -75,10 +74,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         }
     }, [theme, Graph]);
 
-    /* replace */
+    /* replace graphic entirely when root changes */
     useEffect(() => {
-        if (Graph && tree !== Graph.tree) {
+        if (Graph && getEntityId(Graph.tree.data) !== getEntityId(tree.data)) {
             selectAll('svg').remove();
+
             const Graph = new D3ForceGraph(
                 targetId,
                 theme,
@@ -87,31 +87,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             );
             Graph.render();
             setGraph(Graph);
+        } else {
+            Graph?.update(tree);
         }
-    }, [tree, Graph, theme, selectedCallback]);
-
-    /* highlight selected models */
-    useEffect(() => {
-        if (Graph) {
-            const selectedMap = selectedModels.reduce<Record<string, boolean>>(
-                (acc, curr) => ({
-                    ...acc,
-                    [`${curr.type}-${curr.id}`]: true,
-                }),
-                {}
-            );
-
-            // clone tree to prevent mutating bound data,
-            // causing d3 to not register enter selection
-            const mapped = mapTree(tree, t => ({
-                ...t,
-                selected: selectedMap[getEntityId(t.data)],
-            }));
-
-            Graph.update(mapped);
-        }
-        /* eslint-disable-next-line react-hooks/exhaustive-deps  */
-    }, [selectedModels, tree]);
+        /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    }, [tree]);
 
     return containerWidth ? (
         <Box
@@ -133,8 +113,12 @@ const entityTypes: EntityType[] = [
 ];
 
 const colorScale = scaleOrdinal(
-    schemeCategory10.filter((_, i) => i !== 3) //remove red, since that's our highlight color
+    // remove red, since that's our highlight color
+    // and removed gray, since it's close to dark font
+    schemeCategory10.filter((_, i) => ![3, 7].includes(i))
 ).domain(entityTypes);
+
+const nodeSizeScale = scaleLinear().domain([0, 250]).range([5, 10]);
 
 interface DSINode
     extends Record<string, any>,
@@ -158,23 +142,6 @@ const makeLinkKey = <T extends DSINode>(link: SimulationLinkDatum<T>) => {
     const target = link.target as DSINode;
     return `${source.data.id}-${source.parent?.id}-${target.selected}-${target.data.id}`;
 };
-
-const buildSimulation = (
-    nodes: DSINode[],
-    w: number,
-    forceLinks: DSIForceLinks
-) =>
-    forceSimulation<DSINode>(nodes)
-        .force(
-            'charge',
-            forceManyBody()
-                .strength(-25)
-                .distanceMax(w / 4)
-        )
-        .force('links', forceLinks.distance(w / 50).strength(1))
-        .force('collision', forceCollide().radius(6))
-        .force('center', forceCenter())
-        .velocityDecay(0.4);
 
 const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
     forceLink<DSINode, SimulationLinkDatum<DSINode>>(links).id(model =>
@@ -233,7 +200,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.1).restart();
+        simulation.alphaTarget(0.01).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -306,7 +273,7 @@ class D3ForceGraph {
     h: number;
     selector: string;
     svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
-    simulation?: DSISimulation;
+    simulation: DSISimulation;
     theme: Theme;
     tree: DSINode;
     updateCallback: (node: DSINode) => void;
@@ -327,6 +294,8 @@ class D3ForceGraph {
             .attr('class', 'main')
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h]);
         this.updateCallback = updateCallback;
+
+        this.simulation = forceSimulation();
 
         this.svg
             .append('g')
@@ -411,14 +380,50 @@ class D3ForceGraph {
         appendToolTip();
     }
 
-    appendLinks = (forceLinks: DSIForceLinks) =>
-        this.svg
+    appendLinks = (forceLinks: DSIForceLinks) => {
+        const selection = this.svg
             .select<SVGGElement>('g.line-container')
             .selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line')
             .data(forceLinks.links(), makeLinkKey)
-            .attr('class', 'chart')
-            .join('line')
-            .attr('stroke', this.theme.palette.text.primary);
+            .join(
+                enter => {
+                    const enterSelection = enter
+                        .append('line')
+                        .attr('class', 'chart')
+                        .attr('opacity', d =>
+                            (d.target as DSINode).data.type === 'person' ? 0 : 1
+                        )
+                        .attr('stroke', this.theme.palette.text.primary);
+
+                    enterSelection
+                        .transition()
+                        .duration(1000)
+                        .attr('opacity', function (d) {
+                            return (d.target as DSINode).data.type ===
+                                'person' && (d.target as DSINode).selected
+                                ? 1
+                                : select(this).attr('opacity');
+                        });
+                    return enterSelection;
+                },
+                update => update,
+                function (exit) {
+                    exit.transition()
+                        .duration(250)
+                        .ease(easeCubicIn)
+                        .attr('opacity', 0)
+                        .attr('x2', function () {
+                            return select(this).attr('x1');
+                        })
+                        .attr('y2', function () {
+                            return select(this).attr('y1');
+                        })
+                        .remove();
+                }
+            );
+
+        return selection;
+    };
 
     appendNodes = (nodes: DSINode[], simulation: DSISimulation) => {
         const nodeSelection = this.svg
@@ -433,29 +438,69 @@ class D3ForceGraph {
 
                     enterSelection
                         .append('circle')
-                        .attr('fill', d => colorScale(d.data.type))
-                        .attr('stroke', d =>
-                            d.children ? this.theme.palette.text.primary : null
+                        .attr('opacity', d =>
+                            d.data.type === 'person' ? 0 : 1
                         )
+                        .attr('r', d => nodeSizeScale(d.descendants().length))
+                        .attr('fill', d => colorScale(d.data.type))
+                        .attr('stroke', d => {
+                            return d.children
+                                ? this.theme.palette.text.primary
+                                : null;
+                        })
                         .transition()
-                        .duration(700)
-                        .attr('r', d => (d.selected ? 8 : 5))
-                        .attr('fill', d => colorScale(d.data.type));
+                        .duration(500)
+                        .attr('opacity', function (d) {
+                            return d.data.type === 'person' && d.selected
+                                ? 1
+                                : select(this).attr('opacity');
+                        });
 
                     enterSelection
                         .append('path')
-                        .attr('d', 'M -15 0 A 15 15, 0, 1, 0, 0 15 L 0 0 Z')
+                        .attr('d', 'M -8 0 A 8 8, 0, 1, 0, 0 8 L 0 0 Z')
                         .attr('fill', 'red')
                         .attr('stroke', 'black')
-                        .attr('opacity', 0)
+                        .attr('stroke-width', 0)
+                        .attr('fill-opacity', 0)
                         .transition()
-                        .duration(700)
-                        .style('opacity', d => (d.selected ? 1 : 0));
+                        .duration(500)
+                        .attr('fill-opacity', d => (d.selected ? 1 : 0))
+                        .attr('stroke-width', d => (d.selected ? 2 : 0));
+
+                    enterSelection
+                        .filter(
+                            n =>
+                                ['campus', 'network'].includes(n.data.type) ||
+                                (n.descendants().length /
+                                    this.tree.descendants().length >
+                                    0.05 &&
+                                    ['division', 'institution'].includes(
+                                        n.data.type
+                                    ))
+                        )
+                        .append('text')
+                        .attr('fill', this.theme.palette.text.primary)
+                        .attr('opacity', 0)
+                        .text(d => d.data.name)
+                        .attr('text-anchor', 'middle')
+                        .style('user-select', 'none')
+                        .transition()
+                        .duration(500)
+                        .style('opacity', 0.5);
 
                     return enterSelection;
                 },
                 update => update,
-                exit => exit.remove()
+                exit => {
+                    exit.select('circle')
+                        .transition()
+                        .duration(500)
+                        .attr('opacity', 0)
+                        .remove();
+
+                    exit.remove();
+                }
             )
             //ensure selected are in "front"
             .sort(a => (a.selected ? 1 : -1));
@@ -467,6 +512,24 @@ class D3ForceGraph {
 
         return nodeSelection;
     };
+
+    buildSimulation = (
+        nodes: DSINode[],
+        w: number,
+        forceLinks: DSIForceLinks
+    ) =>
+        this.simulation
+            .nodes(nodes)
+            .force(
+                'charge',
+                forceManyBody()
+                    .strength(-50)
+                    .distanceMax(w / 3)
+            )
+            .force('links', forceLinks.distance(w / 50).strength(1))
+            .force('collision', forceCollide().radius(6))
+            .force('center', forceCenter())
+            .velocityDecay(0.4);
 
     registerClickZoom = (selection: DSINodeSelection) => {
         const nodeZoom = zoom<SVGSVGElement, unknown>()
@@ -495,11 +558,7 @@ class D3ForceGraph {
         if (this.tree) {
             const forceLinks = buildForceLinks(this.tree.links());
 
-            this.simulation = buildSimulation(
-                this.tree.descendants(),
-                this.w,
-                forceLinks
-            );
+            this.buildSimulation(this.tree.descendants(), this.w, forceLinks);
 
             const nodeSelection = this.appendNodes(
                 this.simulation.nodes(),
@@ -516,7 +575,7 @@ class D3ForceGraph {
         this.theme = theme;
         this.svg.selectAll('line').attr('stroke', theme.palette.text.primary);
         this.svg.selectAll('circle').attr('stroke', function () {
-            return select(this).attr('strok')
+            return select(this).attr('stroke')
                 ? theme.palette.text.primary
                 : null;
         });
@@ -527,44 +586,60 @@ class D3ForceGraph {
             .attr('fill', theme.palette.background.default);
     };
 
-    update = (tree: DSINode) => {
-        // uncomment only if adding new nodes/links
-        const forceLinks = buildForceLinks(tree.links()); /* .links(
-            tree.links().map(l => ({
-                source: makeNodeKey(l.source),
-                target: makeNodeKey(l.target),
-            }))
-        ); */
+    update = (_tree: DSINode) => {
+        // map previous locations to new nodes
+        const simNodeLocationMap = this.simulation!.nodes().reduce<
+            Record<string, SimulationNodeDatum>
+        >(
+            (acc, curr) => ({
+                ...acc,
+                [curr.id!]: {
+                    x: curr.x,
+                    vx: curr.vx,
+                    y: curr.y,
+                    vy: curr.vy,
+                },
+            }),
+            {}
+        );
+
+        const tree: DSINode = mapTree(_tree, n => ({
+            ...n,
+            ...(simNodeLocationMap[getEntityId(n.data)]
+                ? simNodeLocationMap[getEntityId(n.data)]
+                : // b/c we are inserting/removing only leaf nodes,
+                  // we can confidently set the starting position to the parent's for a smooter entry
+                  simNodeLocationMap[getEntityId(n.parent!.data)]),
+        }));
+
+        const forceLinks = buildForceLinks(tree.links());
 
         //fix coordinates of unselected nodes
-        tree.eachAfter(n => {
-            if (n.children && n.children.find(n => n.selected)) {
-                n.children.forEach(n => {
-                    n.fx = null;
-                    n.fy = null;
-                });
-            } else {
+        tree.each(n => {
+            if (!n.selected) {
                 n.fx = n.x;
                 n.fy = n.y;
             }
         });
 
         // stop sim to prevent timing issues
-        this.simulation?.stop();
+        this.simulation.stop();
 
-        this.simulation?.nodes(tree.descendants());
-        this.simulation?.force('links', forceLinks);
+        this.simulation.nodes(tree.descendants());
+        this.simulation.force('links', forceLinks);
 
         const linkSelection = this.appendLinks(forceLinks);
-        const nodSelection = this.appendNodes(
+        const nodeSelection = this.appendNodes(
             this.simulation!.nodes(),
             this.simulation!
         );
 
         //since references have been broken w/ previous data, we need to reregister handler w/ new selections
-        registerTickHandler(this.simulation!, linkSelection, nodSelection);
+        registerTickHandler(this.simulation!, linkSelection, nodeSelection);
 
-        this.simulation?.alpha(0.01);
-        this.simulation?.restart();
+        this.simulation.force('center', null);
+        this.simulation.alpha(0.3);
+        //this.simulation.alphaTarget(0);
+        this.simulation.restart();
     };
 }

@@ -22,7 +22,7 @@ import {
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
-import { getEntityId, makeTree } from '../../util';
+import { getEntityId, makeTree, mapTree } from '../../util';
 import {
     DSINode,
     isPerson,
@@ -39,7 +39,6 @@ const ChartPage: React.FC = () => {
     const [model, setModel] = useState<ModelEntity[]>();
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
-    const [tree0, setTree0] = useState<HierarchyNode<ModelEntity>>();
     const [containerWidth, setContainerWidth] = useState<number>();
     const [keywordInputString, setKeywordInputString] = useState('');
     const [selectedKeyword, setSelectedKeyword] = useState('');
@@ -60,19 +59,46 @@ const ChartPage: React.FC = () => {
         _getModel();
     }, []);
 
-    /* base tree */
-    useEffect(() => {
-        if (model && root && !tree0) {
-            setTree0(makeTree(model, root));
+    /* 
+        Our base tree, which won't be used for visualizations but for retrieving all descendants of current root,
+          including those not in the current graph (e.g., unselected people).
+     */
+    const tree0 = useMemo(() => {
+        if (root && model) {
+            const modelEntities = Object.values(model).flat();
+
+            const rootModel = Object.values(model)
+                .flat()
+                .find(m => m.type === root.type && m.id === root.id)!;
+
+            return makeTree(modelEntities, rootModel);
         }
-    }, [model, root, tree0]);
+    }, [model, root]);
 
     /* tree with latest root */
     const tree = useMemo(() => {
-        if (tree0 && root) {
-            return tree0.find(n => n.id === getEntityId(root))?.copy();
+        if (root && model) {
+            const selectedMap = groupBy(selected, m => `${m.type}-${m.id}`);
+
+            const modelEntities = Object.values(model)
+                .flat()
+                .filter(
+                    m => m.type !== 'person' || selectedMap[getEntityId(m)]
+                );
+
+            const rootModel = Object.values(model)
+                .flat()
+                .find(m => m.type === root.type && m.id === root.id)!;
+
+            const _tree = makeTree(modelEntities, rootModel);
+
+            /* redundant to map, but I don't love putting a "selected" attribute on the model itself */
+            return mapTree(_tree, t => ({
+                ...t,
+                selected: !!selectedMap[getEntityId(t.data)],
+            }));
         }
-    }, [tree0, root]);
+    }, [model, root, selected]);
 
     const getKeywords = (node: ModelEntity) =>
         isPerson(node)
@@ -109,8 +135,8 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     const keywords = useMemo(() => {
-        if (tree) {
-            const keywords = tree
+        if (tree0) {
+            const keywords = tree0
                 .descendants()
                 .flatMap(p => {
                     const keywords = getKeywords(p.data);
@@ -136,25 +162,25 @@ const ChartPage: React.FC = () => {
                     .sort((a, b) => (a === '' ? 1 : a < b ? -1 : 1))
             );
         }
-    }, [tree]);
+    }, [tree0]);
 
     const SelectableByKeyword = useMemo(() => {
-        return tree
-            ? tree
+        return tree0
+            ? tree0
                   .descendants()
-                  .filter(d => isPerson(d.data) && !!d.data.research_keywords)
                   .map(m => ({
                       keywords: getKeywords(m.data),
                       type: m.data.type,
                       id: m.data.id,
                   }))
+                  .filter(m => !!m.keywords)
             : [];
-    }, [tree]);
+    }, [tree0]);
 
     /* don't pass in nodes b/c autocomplete converts to JSON and you'll get circular errors */
     const names = useMemo(() => {
-        if (tree) {
-            return tree
+        if (tree0) {
+            return tree0
                 ?.descendants()
                 .filter(uniqueBy(d => d.data.name))
                 .map(v => v.data.name)
@@ -163,7 +189,7 @@ const ChartPage: React.FC = () => {
         } else {
             return [];
         }
-    }, [tree]);
+    }, [tree0]);
 
     const nameMap = useMemo(() => {
         if (model) {
@@ -223,10 +249,9 @@ const ChartPage: React.FC = () => {
                         {tree && containerWidth && (
                             <ForceGraph
                                 containerWidth={containerWidth}
-                                selectedModels={selected}
                                 selectedCallback={(node: DSINode) =>
                                     setDetailSelection(
-                                        tree!
+                                        tree0!
                                             .descendants()
                                             .filter(
                                                 m =>
@@ -289,7 +314,7 @@ const ChartPage: React.FC = () => {
                             </Grid>
                             <Grid item>
                                 <FormControl fullWidth>
-                                    {tree && (
+                                    {tree0 && tree && (
                                         <ChartPageAutocomplete
                                             label="Search by name or program"
                                             getOptionLabel={m => capitalize(m)}
@@ -297,39 +322,45 @@ const ChartPage: React.FC = () => {
                                             onInputChange={(value: string) => {
                                                 setNameSearchInputString(value);
                                                 resetKeywordInputs();
-                                                value
-                                                    ? setSelected(
-                                                          tree
-                                                              .descendants()
-                                                              .filter(d =>
-                                                                  d.data.name
-                                                                      .toLowerCase()
-                                                                      .includes(
-                                                                          value.toLowerCase()
-                                                                      )
-                                                              )
-                                                              .flatMap(
-                                                                  v =>
-                                                                      nameMap[
-                                                                          v.data
-                                                                              .name
-                                                                      ]
-                                                              )
-                                                      )
-                                                    : setSelected([]);
+                                                if (!value) {
+                                                    setSelected([]);
+                                                }
                                             }}
-                                            onSelect={(value?: string) =>
-                                                value &&
-                                                setDetailSelection(
-                                                    tree!
-                                                        .descendants()
-                                                        .filter(
-                                                            m =>
-                                                                m.data.name ===
-                                                                value
-                                                        )
-                                                )
-                                            }
+                                            onSelect={(value?: string) => {
+                                                if (value) {
+                                                    setDetailSelection(
+                                                        tree0!
+                                                            .descendants()
+                                                            .filter(
+                                                                m =>
+                                                                    m.data
+                                                                        .name ===
+                                                                    value
+                                                            )
+                                                    );
+                                                    setSelected(
+                                                        tree0
+                                                            .descendants()
+                                                            .filter(d =>
+                                                                d.data.name
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        value.toLowerCase()
+                                                                    )
+                                                            )
+                                                            .flatMap(
+                                                                v =>
+                                                                    nameMap[
+                                                                        v.data
+                                                                            .name
+                                                                    ]
+                                                            )
+                                                    );
+                                                } else {
+                                                    setDetailSelection([]);
+                                                    setSelected([]);
+                                                }
+                                            }}
                                             options={names}
                                             tree={tree}
                                             value={nameSearchInputString}
@@ -347,27 +378,30 @@ const ChartPage: React.FC = () => {
                                             onInputChange={(value: string) => {
                                                 setKeywordInputString(value);
                                                 resetNameSearchInputs();
-                                                setSelected(
-                                                    value
-                                                        ? SelectableByKeyword.filter(
-                                                              p =>
-                                                                  p.keywords
-                                                                      .toLowerCase()
-                                                                      .includes(
-                                                                          value.toLowerCase()
-                                                                      )
-                                                          ).map(p => ({
-                                                              type: p.type,
-                                                              id: p.id,
-                                                          }))
-                                                        : []
-                                                );
+                                                if (!value) {
+                                                    setSelected([]);
+                                                }
                                             }}
-                                            onSelect={selected =>
+                                            onSelect={selected => {
                                                 setSelectedKeyword(
                                                     selected || ''
-                                                )
-                                            }
+                                                );
+                                                if (selected) {
+                                                    setSelected(
+                                                        SelectableByKeyword.filter(
+                                                            p =>
+                                                                p.keywords
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        selected.toLowerCase()
+                                                                    )
+                                                        ).map(p => ({
+                                                            type: p.type,
+                                                            id: p.id,
+                                                        }))
+                                                    );
+                                                }
+                                            }}
                                             options={keywords}
                                             tree={tree}
                                             value={selectedKeyword}

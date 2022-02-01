@@ -51,8 +51,8 @@ const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
         is_resource: yesToBool(u.type_resource),
         name:
             programMap[u.program].length > 1
-                ? `${u.program} (${u.campus})`
-                : u.program,
+                ? `${u.program} (${u.campus})`.trim()
+                : u.program.trim(),
         type: 'program' as const,
         ...baseEntityAttributes,
     }));
@@ -112,7 +112,7 @@ const linkEntities = (
     ]
         .filter(Boolean)
         .map((d, id) => ({
-            name: d,
+            name: d.trim(),
             id: id + 1,
             parentId: 1,
             parentType: 'network',
@@ -125,13 +125,15 @@ const linkEntities = (
     const campuses: Campus[] = [...new Set(programs.map(u => u.campus))]
         .filter(Boolean)
         .map((d, id) => ({
-            name: d,
+            name: d.trim(),
             id: id + 1,
             parentId: UofT.id,
             parentType: 'institution',
             relationship: 'campus',
             type: 'campus' as const,
         }));
+
+    const campusMap = groupBy(campuses, 'name');
 
     const _divisionMap = groupBy(
         programs.filter(p => !!p.division),
@@ -146,7 +148,7 @@ const linkEntities = (
     ]
         .map((d, i) => ({
             id: i + 1,
-            name: d,
+            name: d?.trim(),
             type: 'division' as const,
             parentId: _divisionMap[d]
                 ? campuses.find(c => _divisionMap[d][0].campus! === c.name)!.id
@@ -175,7 +177,7 @@ const linkEntities = (
         )
         .map((u, i) => ({
             id: i + 1,
-            name: u.department,
+            name: u.department?.trim(),
             type: 'unit' as const,
             parentId: divisionMap[u.division][0].id,
             parentType: 'division',
@@ -248,7 +250,7 @@ const linkEntities = (
         })
         .filter(p => !!p && p.parentId) as AcademicProgram[];
 
-    /* for the time being we won't use resource institutions to make top-level entries but will only link to existing */
+    /* for the time being we won't use resource institutions to make top-level entries but will link to existing */
     const resource = resources
         .map((r, i) => {
             if (divisionMap[r.division]) {
@@ -258,6 +260,15 @@ const linkEntities = (
                     type: 'resource',
                     parentId: divisionMap[r.division][0].id,
                     parentType: 'division',
+                    relationship: 'resource',
+                };
+            } else if (campusMap[r.campus]) {
+                return {
+                    ...r,
+                    id: i + 1,
+                    type: 'resource',
+                    parentId: campusMap[r.campus][0].id,
+                    parentType: 'campus',
                     relationship: 'resource',
                 };
             } else if (institutionMap[r.institution]) {
@@ -282,7 +293,7 @@ const linkEntities = (
         network,
         ...resource,
         ...units,
-    ];
+    ].filter(m => m.name !== 'Not Applicable');
 };
 const getModel = async (): Promise<ModelEntity[]> => {
     const peopleData = await fetchPeopleData();

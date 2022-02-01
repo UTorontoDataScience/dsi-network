@@ -73,7 +73,7 @@ const ChartPage: React.FC = () => {
 
             return makeTree(modelEntities, rootModel);
         }
-    }, [model, root, selected]);
+    }, [model, root]);
 
     /* tree with latest root */
     const tree = useMemo(() => {
@@ -98,7 +98,7 @@ const ChartPage: React.FC = () => {
                 selected: !!selectedMap[getEntityId(t.data)],
             }));
         }
-    }, [model, root, selected, selectedKeyword]);
+    }, [model, root, selected]);
 
     const getKeywords = (node: ModelEntity) =>
         isPerson(node)

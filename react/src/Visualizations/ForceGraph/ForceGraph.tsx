@@ -265,9 +265,8 @@ const appendToolTip = () => {
 };
 
 const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
-    ['campus'].includes(n.data.type) ||
-    (n.descendants().length / tree.descendants().length > 0.05 &&
-        ['division', 'institution'].includes(n.data.type));
+    n.descendants().length / tree.descendants().length > 0.05 &&
+    ['campus', 'division', 'institution'].includes(n.data.type);
 
 class D3ForceGraph {
     globalZoomHandler: ({
@@ -526,13 +525,13 @@ class D3ForceGraph {
             .force(
                 'charge',
                 forceManyBody()
-                    .strength(-50)
+                    .strength(-40)
                     .distanceMax(w / 3)
             )
-            .force('links', forceLinks.distance(w / 50).strength(1))
+            .force('links', forceLinks.distance(w / 40).strength(1))
             .force('collision', forceCollide().radius(6))
             .force('center', forceCenter())
-            .velocityDecay(0.4);
+            .velocityDecay(0.1);
 
     registerClickZoom = (selection: DSINodeSelection) => {
         const nodeZoom = zoom<SVGSVGElement, unknown>()

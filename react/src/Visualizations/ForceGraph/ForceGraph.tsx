@@ -264,7 +264,10 @@ const appendToolTip = () => {
         .style('color', 'white');
 };
 
-export default ForceGraph;
+const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
+    ['campus'].includes(n.data.type) ||
+    (n.descendants().length / tree.descendants().length > 0.05 &&
+        ['division', 'institution'].includes(n.data.type));
 
 class D3ForceGraph {
     globalZoomHandler: ({
@@ -437,16 +440,7 @@ class D3ForceGraph {
                         .attr('class', 'circle-node');
 
                     outerContainer
-                        .filter(
-                            n =>
-                                ['campus', 'network'].includes(n.data.type) ||
-                                (n.descendants().length /
-                                    this.tree.descendants().length >
-                                    0.05 &&
-                                    ['division', 'institution'].includes(
-                                        n.data.type
-                                    ))
-                        )
+                        .filter(n => getShouldShowLabel(n, this.tree))
                         .append('text')
                         .attr('fill', this.theme.palette.text.primary)
                         .attr('opacity', 0)
@@ -466,7 +460,7 @@ class D3ForceGraph {
                     enterNodeSelection
                         .append('circle')
                         .attr('opacity', d =>
-                            d.data.type === 'person' ? 0 : 1
+                            d.data.type === 'person' ? 0 : 0.8
                         )
                         .attr('r', d => nodeSizeScale(d.descendants().length))
                         .attr('fill', d => colorScale(d.data.type))
@@ -479,7 +473,7 @@ class D3ForceGraph {
                         .duration(500)
                         .attr('opacity', function (d) {
                             return d.data.type === 'person' && d.selected
-                                ? 1
+                                ? 0.8
                                 : select(this).attr('opacity');
                         });
 
@@ -492,7 +486,7 @@ class D3ForceGraph {
                         .attr('fill-opacity', 0)
                         .transition()
                         .duration(500)
-                        .attr('fill-opacity', d => (d.selected ? 1 : 0))
+                        .attr('fill-opacity', d => (d.selected ? 0.8 : 0))
                         .attr('stroke-width', d => (d.selected ? 2 : 0));
 
                     return outerContainer;
@@ -515,7 +509,11 @@ class D3ForceGraph {
             .selectAll<SVGGElement, DSINode>('g.interactive-area')
             .call(registerToolTip)
             .call(this.registerClickZoom, this.svg);
-        return nodeSelection;
+
+        //ensure labeled groups are in "back"
+        return nodeSelection.sort(a =>
+            getShouldShowLabel(a, this.tree) ? -1 : 1
+        );
     };
 
     buildSimulation = (
@@ -642,3 +640,5 @@ class D3ForceGraph {
         this.simulation.restart();
     };
 }
+
+export default ForceGraph;

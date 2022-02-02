@@ -6,7 +6,13 @@ import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
 import { scaleLinear, scaleOrdinal } from 'd3-scale';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
-import { D3ZoomEvent, zoom, zoomIdentity, zoomTransform } from 'd3-zoom';
+import {
+    D3ZoomEvent,
+    zoom,
+    ZoomBehavior,
+    zoomIdentity,
+    zoomTransform,
+} from 'd3-zoom';
 import 'd3-transition'; // must be imported so selection.transition will resolve
 import {
     forceCenter,
@@ -289,6 +295,7 @@ const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
     ['campus', 'division', 'institution'].includes(n.data.type);
 
 class D3ForceGraph {
+    globalZoom: ZoomBehavior<SVGSVGElement, unknown>;
     globalZoomHandler: ({
         transform,
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
@@ -344,11 +351,11 @@ class D3ForceGraph {
                 .attr('transform', `translate(2,15)`);
         };
         /* 'global' zoom behavior, will listen on SVG and adjust scale on mouse wheel */
-        const globalZoom = zoom<SVGSVGElement, unknown>()
+        this.globalZoom = zoom<SVGSVGElement, unknown>()
             .scaleExtent([0.5, 40])
             .on('zoom', this.globalZoomHandler);
 
-        this.svg.call(globalZoom);
+        this.svg.call(this.globalZoom);
 
         const zoomIndicator = this.svg
             .append('g')
@@ -375,13 +382,7 @@ class D3ForceGraph {
         this.svg.on('click', function () {
             const currentZoom = zoomTransform(select(this).node()!).k;
             if (currentZoom > 1) {
-                that.svg
-                    .transition()
-                    .duration(1000)
-                    .call(
-                        globalZoom.transform,
-                        zoomIdentity.translate(0, 0).scale(1)
-                    );
+                that.resetZoom();
             }
         });
 
@@ -531,7 +532,7 @@ class D3ForceGraph {
         nodeSelection
             .selectAll<SVGGElement, DSINode>('g.interactive-area')
             .call(registerToolTip)
-            .call(this.registerClickZoom, this.svg);
+            .call(this.registerNodeClickBehavior, this.svg);
 
         //ensure labeled groups are in "back"
         return nodeSelection.sort(a =>
@@ -557,28 +558,12 @@ class D3ForceGraph {
             .force('center', forceCenter())
             .velocityDecay(0.1);
 
-    registerClickZoom = (selection: DSINodeSelection) => {
-        const nodeZoom = zoom<SVGSVGElement, unknown>()
-            .scaleExtent([0.5, 40])
-            .on('zoom', this.globalZoomHandler);
-
-        const clickZoom = (event: MouseEvent, node: DSINode) => {
-            event.stopPropagation();
-
-            nodeZoom.transform(
-                this.svg.transition().duration(750),
-                zoomIdentity
-                    .translate(0, 0)
-                    .scale(3)
-                    .translate(-node.x!, -node.y!)
-            );
-        };
-
+    registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
-            clickZoom(e, node);
+            e.stopPropagation();
+            this.zoomToNode(node);
             this.updateCallback(node);
         });
-    };
 
     render = () => {
         if (this.tree) {
@@ -593,6 +578,15 @@ class D3ForceGraph {
             registerTickHandler(this.simulation, linkSelection, nodeSelection);
         }
     };
+
+    resetZoom = () =>
+        this.svg
+            .transition()
+            .duration(1000)
+            .call(
+                this.globalZoom.transform,
+                zoomIdentity.translate(0, 0).scale(1)
+            );
 
     toggleTheme = (theme: Theme) => {
         this.theme = theme;
@@ -659,9 +653,20 @@ class D3ForceGraph {
 
         this.simulation.force('center', null);
         this.simulation.alpha(0.3);
-        //this.simulation.alphaTarget(0);
         this.simulation.restart();
+        const selectedNodes = this.simulation.nodes().filter(n => n.selected);
+        if (selectedNodes.length === 1) {
+            this.zoomToNode(selectedNodes[0], 500);
+        } else {
+            this.resetZoom();
+        }
     };
+
+    zoomToNode = (node: DSINode, delay = 0) =>
+        this.globalZoom.transform(
+            this.svg.transition().delay(delay).duration(750),
+            zoomIdentity.translate(0, 0).scale(3).translate(-node.x!, -node.y!)
+        );
 }
 
 export default ForceGraph;

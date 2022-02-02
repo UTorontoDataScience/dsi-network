@@ -113,13 +113,28 @@ const entityTypes: EntityType[] = [
 ];
 
 const colorScale = scaleOrdinal(
-    // remove red, since that's our highlight color
-    // and removed gray, since it's close to dark font
+    // remove red, b/c it's close to highlight color
+    // remove gray, b/c it's close to dark font
     schemeCategory10.filter((_, i) => ![3, 7].includes(i))
 ).domain(entityTypes);
 
-const nodeSizeScale = scaleLinear().domain([0, 250]).range([5, 10]);
+const getNodeSizeScale = (maxNodes: number) =>
+    scaleLinear().domain([0, maxNodes]).range([5, 10]);
 
+const getLabelOffsetScale = (maxDistance: number) =>
+    scaleLinear().domain([0, maxDistance]).range([0, 50]);
+
+const getLabelXOffset = (x: number, y: number) => {
+    const distance = Math.sqrt(x ** 2 + y ** 2);
+    const distanceScaled = getLabelOffsetScale(500)(distance);
+    return x > 0 ? distanceScaled : -distanceScaled;
+};
+
+const getLabelYOffset = (x: number, y: number) => {
+    const distance = Math.sqrt(x ** 2 + y ** 2);
+    const distanceScaled = getLabelOffsetScale(500)(distance);
+    return y > 0 ? -distanceScaled : +distanceScaled;
+};
 interface DSINode
     extends Record<string, any>,
         HierarchyNode<ModelEntity>,
@@ -161,6 +176,11 @@ const registerTickHandler = (
     // simulation mutates data bound to nodes by reference
     simulation.on('tick', () => {
         nodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
+
+        nodeSelection
+            .selectAll<SVGTextElement, DSINode>('text')
+            .attr('x', d => getLabelXOffset(d.x!, d.y!))
+            .attr('y', d => getLabelYOffset(d.x!, d.y!));
 
         linkSelection
             .attr('x1', d => (d.source as DSINode).x!)
@@ -461,7 +481,11 @@ class D3ForceGraph {
                         .attr('opacity', d =>
                             d.data.type === 'person' ? 0 : 0.8
                         )
-                        .attr('r', d => nodeSizeScale(d.descendants().length))
+                        .attr('r', d =>
+                            getNodeSizeScale(nodes.length)(
+                                d.descendants().length
+                            )
+                        )
                         .attr('fill', d => colorScale(d.data.type))
                         .attr('stroke', d => {
                             return d.children
@@ -525,7 +549,7 @@ class D3ForceGraph {
             .force(
                 'charge',
                 forceManyBody()
-                    .strength(-40)
+                    .strength(-50)
                     .distanceMax(w / 3)
             )
             .force('links', forceLinks.distance(w / 40).strength(1))

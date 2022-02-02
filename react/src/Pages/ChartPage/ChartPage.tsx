@@ -7,6 +7,7 @@ import {
     InputLabel,
     MenuItem,
     Select,
+    SelectChangeEvent,
     Tab,
     Tabs,
     TextField,
@@ -196,6 +197,57 @@ const ChartPage: React.FC = () => {
         }
     }, [model]);
 
+    const selectableRoots = useMemo(() => {
+        return (model || [])
+            .filter(m => ['campus', 'institution', 'network'].includes(m.type))
+            .sort((a, b) =>
+                a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
+            );
+    }, [model]);
+
+    const handleKeywordSearchSelect = (value?: string) => {
+        setSelectedKeyword(value || '');
+        if (value) {
+            setSelected(
+                SelectableByKeyword.filter(p =>
+                    p.keywords.toLowerCase().includes(value.toLowerCase())
+                ).map(p => ({
+                    type: p.type,
+                    id: p.id,
+                }))
+            );
+        }
+    };
+
+    const handleNameSearchSelect = (value?: string) => {
+        if (value && tree0) {
+            setDetailSelection(
+                tree0!.descendants().filter(m => m.data.name === value)
+            );
+            setSelected(
+                tree0
+                    .descendants()
+                    .filter(d =>
+                        d.data.name.toLowerCase().includes(value.toLowerCase())
+                    )
+                    .flatMap(v => nameMap[v.data.name])
+            );
+        } else {
+            setDetailSelection([]);
+            setSelected([]);
+        }
+    };
+
+    const handleRootSelectChange = (e: SelectChangeEvent<string>) => {
+        setRoot(
+            (model || []).find(
+                m => e.target && getEntityId(m) === e.target.value
+            )
+        );
+        resetKeywordInputs();
+        resetNameSearchInputs();
+    };
+
     const resetKeywordInputs = () => {
         setKeywordInputString('');
         setSelectedKeyword('');
@@ -261,44 +313,19 @@ const ChartPage: React.FC = () => {
                                     <InputLabel htmlFor="root">Root</InputLabel>
                                     <Select
                                         id="root"
-                                        onChange={e => {
-                                            setRoot(
-                                                (model || []).find(
-                                                    m =>
-                                                        e.target &&
-                                                        getEntityId(m) ===
-                                                            e.target.value
-                                                )
-                                            );
-                                            resetKeywordInputs();
-                                            resetNameSearchInputs();
-                                        }}
+                                        onChange={handleRootSelectChange}
                                         value={root ? getEntityId(root) : ''}
                                     >
-                                        {(model || [])
-                                            .filter(m =>
-                                                [
-                                                    'campus',
-                                                    'institution',
-                                                    'network',
-                                                ].includes(m.type)
-                                            )
-                                            .sort((a, b) =>
-                                                a.name.toLowerCase() <
-                                                b.name.toLowerCase()
-                                                    ? -1
-                                                    : 1
-                                            )
-                                            .map(m => (
-                                                <MenuItem
-                                                    key={m.name}
-                                                    value={getEntityId(m)}
-                                                >
-                                                    <Typography>
-                                                        {m.name}
-                                                    </Typography>
-                                                </MenuItem>
-                                            ))}
+                                        {selectableRoots.map(m => (
+                                            <MenuItem
+                                                key={m.name}
+                                                value={getEntityId(m)}
+                                            >
+                                                <Typography>
+                                                    {m.name}
+                                                </Typography>
+                                            </MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                             </Grid>
@@ -316,41 +343,7 @@ const ChartPage: React.FC = () => {
                                                     setSelected([]);
                                                 }
                                             }}
-                                            onSelect={(value?: string) => {
-                                                if (value) {
-                                                    setDetailSelection(
-                                                        tree0!
-                                                            .descendants()
-                                                            .filter(
-                                                                m =>
-                                                                    m.data
-                                                                        .name ===
-                                                                    value
-                                                            )
-                                                    );
-                                                    setSelected(
-                                                        tree0
-                                                            .descendants()
-                                                            .filter(d =>
-                                                                d.data.name
-                                                                    .toLowerCase()
-                                                                    .includes(
-                                                                        value.toLowerCase()
-                                                                    )
-                                                            )
-                                                            .flatMap(
-                                                                v =>
-                                                                    nameMap[
-                                                                        v.data
-                                                                            .name
-                                                                    ]
-                                                            )
-                                                    );
-                                                } else {
-                                                    setDetailSelection([]);
-                                                    setSelected([]);
-                                                }
-                                            }}
+                                            onSelect={handleNameSearchSelect}
                                             options={names}
                                             tree={tree}
                                             value={nameSearchInputString}
@@ -372,26 +365,7 @@ const ChartPage: React.FC = () => {
                                                     setSelected([]);
                                                 }
                                             }}
-                                            onSelect={selected => {
-                                                setSelectedKeyword(
-                                                    selected || ''
-                                                );
-                                                if (selected) {
-                                                    setSelected(
-                                                        SelectableByKeyword.filter(
-                                                            p =>
-                                                                p.keywords
-                                                                    .toLowerCase()
-                                                                    .includes(
-                                                                        selected.toLowerCase()
-                                                                    )
-                                                        ).map(p => ({
-                                                            type: p.type,
-                                                            id: p.id,
-                                                        }))
-                                                    );
-                                                }
-                                            }}
+                                            onSelect={handleKeywordSearchSelect}
                                             options={keywords}
                                             tree={tree}
                                             value={selectedKeyword}

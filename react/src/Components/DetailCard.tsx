@@ -36,9 +36,11 @@ interface DetailCardProps {
 const DetailCard: React.FC<DetailCardProps> = ({ nodes }) => {
     return (
         <Card variant="elevation">
-            <Typography color="primary" variant="h4">
-                {nodes[0].data.name}
-            </Typography>
+            <Box padding={2}>
+                <Typography color="primary" variant="h4">
+                    {nodes[0].data.name}
+                </Typography>
+            </Box>
             <CardContent>{resolveDetailComponent(nodes)}</CardContent>
         </Card>
     );

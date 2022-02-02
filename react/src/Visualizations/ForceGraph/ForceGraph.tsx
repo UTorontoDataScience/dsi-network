@@ -413,20 +413,12 @@ class D3ForceGraph {
                     const enterSelection = enter
                         .append('line')
                         .attr('class', 'chart')
-                        .attr('opacity', d =>
-                            (d.target as DSINode).data.type === 'person' ? 0 : 1
-                        )
                         .attr('stroke', this.theme.palette.text.primary);
 
                     enterSelection
                         .transition()
                         .duration(1000)
-                        .attr('opacity', function (d) {
-                            return (d.target as DSINode).data.type ===
-                                'person' && (d.target as DSINode).selected
-                                ? 1
-                                : select(this).attr('opacity');
-                        });
+                        .attr('opacity', 1);
                     return enterSelection;
                 },
                 update => update,
@@ -479,9 +471,7 @@ class D3ForceGraph {
 
                     enterNodeSelection
                         .append('circle')
-                        .attr('opacity', d =>
-                            d.data.type === 'person' ? 0 : 0.8
-                        )
+                        .attr('opacity', 0)
                         .attr('r', d =>
                             getNodeSizeScale(nodes.length)(
                                 d.descendants().length
@@ -495,11 +485,7 @@ class D3ForceGraph {
                         })
                         .transition()
                         .duration(500)
-                        .attr('opacity', function (d) {
-                            return d.data.type === 'person' && d.selected
-                                ? 0.8
-                                : select(this).attr('opacity');
-                        });
+                        .attr('opacity', 0.8);
 
                     enterNodeSelection
                         .append('path')

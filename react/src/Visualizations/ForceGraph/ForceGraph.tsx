@@ -127,13 +127,13 @@ const getLabelOffsetScale = (maxDistance: number) =>
 const getLabelXOffset = (x: number, y: number) => {
     const distance = Math.sqrt(x ** 2 + y ** 2);
     const distanceScaled = getLabelOffsetScale(500)(distance);
-    return x > 0 ? distanceScaled : -distanceScaled;
+    return x > 0 ? -distanceScaled : distanceScaled;
 };
 
 const getLabelYOffset = (x: number, y: number) => {
     const distance = Math.sqrt(x ** 2 + y ** 2);
     const distanceScaled = getLabelOffsetScale(500)(distance);
-    return y > 0 ? -distanceScaled : +distanceScaled;
+    return y > 0 ? -distanceScaled : distanceScaled;
 };
 interface DSINode
     extends Record<string, any>,

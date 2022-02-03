@@ -4,7 +4,7 @@ import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
-import { scaleLinear, scaleOrdinal } from 'd3-scale';
+import { ScaleLinear, scaleLinear, scaleOrdinal } from 'd3-scale';
 import { Selection, BaseType, select, selectAll } from 'd3-selection';
 import {
     D3ZoomEvent,
@@ -125,7 +125,7 @@ const colorScale = scaleOrdinal(
 ).domain(entityTypes);
 
 const getNodeSizeScale = (maxNodes: number) =>
-    scaleLinear().domain([0, maxNodes]).range([5, 10]);
+    scaleLinear().domain([0, maxNodes]).range([3.25, 12]);
 
 const getLabelOffsetScale = (maxDistance: number) =>
     scaleLinear().domain([0, maxDistance]).range([0, 50]);
@@ -196,10 +196,28 @@ const registerTickHandler = (
     });
 };
 
-const registerToolTip = (selection: DSINodeSelection) => {
+const registerOnHover = (
+    selection: DSINodeSelection,
+    nodeSizeScale: ScaleLinear<number, number>
+) => {
     selection
-        .on('mouseover', (d: MouseEvent) => showToolTip(d))
-        .on('mouseout', () => hideToolTip());
+        .on('mouseover', function (d: MouseEvent) {
+            showToolTip(d);
+            select(this)
+                .selectAll<SVGCircleElement, DSINode>('circle')
+                .transition()
+                .duration(100)
+                .attr('r', d => nodeSizeScale(d.descendants().length) + 5);
+        })
+        .on('mouseout', function () {
+            select(this)
+                .selectAll<SVGCircleElement, DSINode>('circle')
+                .transition()
+                .duration(100)
+                .attr('r', d => nodeSizeScale(d.descendants().length));
+
+            hideToolTip();
+        });
 };
 
 const showToolTip = (e: MouseEvent) => {
@@ -226,7 +244,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.01).restart();
+        simulation.alphaTarget(0.1).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -517,7 +535,7 @@ class D3ForceGraph {
 
         nodeSelection
             .selectAll<SVGGElement, DSINode>('g.interactive-area')
-            .call(registerToolTip)
+            .call(registerOnHover, getNodeSizeScale(nodes.length))
             .call(this.registerNodeClickBehavior, this.svg);
 
         //ensure labeled groups are in "back"
@@ -640,7 +658,9 @@ class D3ForceGraph {
         this.simulation.force('center', null);
         this.simulation.alpha(0.3);
         this.simulation.restart();
+
         const selectedNodes = this.simulation.nodes().filter(n => n.selected);
+
         if (selectedNodes.length === 1) {
             this.zoomToNode(selectedNodes[0], 500);
         } else {

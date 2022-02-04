@@ -100,11 +100,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     }, [tree]);
 
     return containerWidth ? (
-        <Box
-            width={`${containerWidth}px`}
-            border={`solid thin ${theme.palette.text.secondary}`}
-            id={targetId}
-        />
+        <Box width={`${containerWidth}px`} id={targetId} />
     ) : null;
 };
 
@@ -244,7 +240,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.1).restart();
+        simulation.alphaTarget(0.02).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -335,11 +331,12 @@ class D3ForceGraph {
         this.theme = theme;
         this.tree = tree;
         this.w = 1000;
-        this.h = 1000;
+        this.h = 825;
         this.svg = select(`#${this.selector}`)
             .append('svg')
             .attr('class', 'main')
-            .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h]);
+            .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h])
+            .style('border', `solid thin ${theme.palette.text.secondary}`);
         this.updateCallback = updateCallback;
 
         this.simulation = forceSimulation();
@@ -530,7 +527,7 @@ class D3ForceGraph {
                     exit.remove();
                 }
             )
-            //ensure selected are in "front"
+            //ensure selected nodes are in "front"
             .sort(a => (a.selected ? 1 : -1));
 
         nodeSelection
@@ -538,7 +535,7 @@ class D3ForceGraph {
             .call(registerOnHover, getNodeSizeScale(nodes.length))
             .call(this.registerNodeClickBehavior, this.svg);
 
-        //ensure labeled groups are in "back"
+        //ensure labeled groups are in "back" to prevent text from capturing mouse events intended for nodes
         return nodeSelection.sort(a =>
             getShouldShowLabel(a, this.tree) ? -1 : 1
         );
@@ -628,8 +625,8 @@ class D3ForceGraph {
             ...n,
             ...(simNodeLocationMap[getEntityId(n.data)]
                 ? simNodeLocationMap[getEntityId(n.data)]
-                : // b/c we are inserting/removing only leaf nodes,
-                  // we can confidently set the starting position to the parent's for a smooter entry
+                : /*  b/c we are inserting/removing only leaf nodes,
+                   we can set the starting position to the parent's for a smoother entry transition */
                   simNodeLocationMap[getEntityId(n.parent!.data)]),
         }));
 
@@ -652,7 +649,7 @@ class D3ForceGraph {
         const linkSelection = this.appendLinks(forceLinks);
         const nodeSelection = this.appendNodes(this.simulation!.nodes());
 
-        //since references have been broken w/ previous data, we need to reregister handler w/ new selections
+        // references have been broken w/ previous data, so we need to reregister handler
         registerTickHandler(this.simulation!, linkSelection, nodeSelection);
 
         this.simulation.force('center', null);

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
-import { selectAll } from 'd3-selection';
 import { DSINode, EntityType, ModelEntity } from '../../types';
 import { getEntityId } from '../../util';
 import D3ForceGraph from './ForceGraph';
@@ -48,19 +47,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         }
     }, [theme, Graph]);
 
-    /* replace graphic entirely when root changes */
     useEffect(() => {
+        /* replace graphic entirely when root changes */
         if (Graph && getEntityId(Graph.tree.data) !== getEntityId(tree.data)) {
-            selectAll('svg').remove();
-
-            const Graph = new D3ForceGraph(
-                targetId,
-                theme,
-                tree,
-                selectedCallback
-            );
+            Graph.remove();
+            Graph.setTree(tree);
             Graph.render();
-            setGraph(Graph);
         } else {
             Graph?.update(tree);
         }

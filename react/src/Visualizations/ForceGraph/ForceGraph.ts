@@ -94,7 +94,7 @@ export const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
         makeNodeKey(model)
     );
 
-export const registerTickHandler = (
+const registerTickHandler = (
     simulation: DSISimulation,
     linkSelection: Selection<
         SVGLineElement,
@@ -492,6 +492,8 @@ export default class D3ForceGraph {
             this.updateCallback(node);
         });
 
+    remove = () => this.svg.selectAll('.container').selectAll('*').remove();
+
     render = () => {
         if (this.tree) {
             const forceLinks = buildForceLinks(this.tree.links());
@@ -501,6 +503,12 @@ export default class D3ForceGraph {
             const nodeSelection = this.appendNodes(this.simulation.nodes());
 
             const linkSelection = this.appendLinks(forceLinks);
+
+            /* if this is a rerender, reheat sim */
+            if (this.simulation.alpha() < 1) {
+                this.simulation.alpha(1);
+                this.simulation.restart();
+            }
 
             registerTickHandler(this.simulation, linkSelection, nodeSelection);
         }
@@ -514,6 +522,8 @@ export default class D3ForceGraph {
                 this.globalZoom.transform,
                 zoomIdentity.translate(0, 0).scale(1)
             );
+
+    setTree = (tree: DSINode) => (this.tree = tree);
 
     toggleTheme = (theme: Theme) => {
         this.theme = theme;

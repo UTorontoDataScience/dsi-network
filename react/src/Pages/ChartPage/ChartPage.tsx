@@ -66,6 +66,17 @@ const ChartPage: React.FC = () => {
         _getModel();
     }, []);
 
+    useEffect(() => {
+        const listener = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setLocalViewNode(undefined);
+            }
+        };
+        window.addEventListener('keydown', listener);
+
+        return () => window.removeEventListener('keydown', listener);
+    }, []);
+
     /* 
         Base tree, which won't be used for visualizations but rather for retrieving all possible descendants of current root,
           including those not in the current graph (e.g., unselected people).
@@ -408,6 +419,14 @@ const ChartPage: React.FC = () => {
                     onClose={() => {
                         setLocalViewNode(undefined);
                     }}
+                    onNodeClick={n => {
+                        if (
+                            getEntityId(n.data) !==
+                            getEntityId(localViewNode.data)
+                        ) {
+                            setLocalViewNode(n);
+                        }
+                    }}
                 />
             )}
         </Grid>
@@ -463,11 +482,17 @@ export default ChartPage;
 
 interface LocalViewProps {
     nodeId: string;
+    onNodeClick: (node: DSINode) => void;
     onClose: () => void;
     tree: DSINode;
 }
 
-const LocalView: React.FC<LocalViewProps> = ({ nodeId, onClose, tree }) => (
+const LocalView: React.FC<LocalViewProps> = ({
+    nodeId,
+    onClose,
+    onNodeClick,
+    tree,
+}) => (
     <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
         <Paper sx={{ flexGrow: 1, padding: 15 }}>
             <IconButton
@@ -483,7 +508,11 @@ const LocalView: React.FC<LocalViewProps> = ({ nodeId, onClose, tree }) => (
             >
                 <CloseIcon />
             </IconButton>
-            <ForceGraphLocal selectedNodeId={nodeId} tree={tree.copy()} />
+            <ForceGraphLocal
+                onNodeClick={onNodeClick}
+                selectedNodeId={nodeId}
+                tree={tree.copy()}
+            />
         </Paper>
     </Backdrop>
 );

@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Autocomplete,
+    Backdrop,
     capitalize,
     FormControl,
     Grid,
+    IconButton,
     InputLabel,
     MenuItem,
+    Paper,
     Select,
     SelectChangeEvent,
     Tab,
@@ -14,15 +17,16 @@ import {
     Typography,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
-import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import {
     ForceGraph,
+    ForceGraphLocal,
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
+import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraphComponent';
 import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
 import {
     DSINode,
@@ -31,12 +35,14 @@ import {
     isResource,
     ModelEntity,
 } from '../../types';
+import { CloseIcon } from '../../Icons';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [detailSelection, setDetailSelection] = useState<
         HierarchyNode<ModelEntity>[]
     >([]);
+    const [localViewNode, setLocalViewNode] = useState<DSINode>();
     const [model, setModel] = useState<ModelEntity[]>();
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
@@ -301,6 +307,7 @@ const ChartPage: React.FC = () => {
                                             )
                                     );
                                     setNameSearchInputString(node.data.name);
+                                    setLocalViewNode(node);
                                 }}
                                 tree={tree}
                             />
@@ -394,6 +401,15 @@ const ChartPage: React.FC = () => {
                     )}
                 </Grid>
             )}
+            {tree0 && !!localViewNode && (
+                <LocalView
+                    tree={tree0}
+                    nodeId={getEntityId(localViewNode.data)}
+                    onClose={() => {
+                        setLocalViewNode(undefined);
+                    }}
+                />
+            )}
         </Grid>
     );
 };
@@ -444,3 +460,30 @@ const ChartPageAutocomplete: React.FC<ChartPageAutocompleteProps> = ({
 );
 
 export default ChartPage;
+
+interface LocalViewProps {
+    nodeId: string;
+    onClose: () => void;
+    tree: DSINode;
+}
+
+const LocalView: React.FC<LocalViewProps> = ({ nodeId, onClose, tree }) => (
+    <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
+        <Paper sx={{ flexGrow: 1, padding: 15 }}>
+            <IconButton
+                disableFocusRipple={true}
+                disableRipple={true}
+                onClick={onClose}
+                sx={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    width: '5%',
+                }}
+            >
+                <CloseIcon />
+            </IconButton>
+            <ForceGraphLocal selectedNodeId={nodeId} tree={tree.copy()} />
+        </Paper>
+    </Backdrop>
+);

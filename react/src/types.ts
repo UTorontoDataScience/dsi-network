@@ -1,3 +1,4 @@
+import { SimulationNodeDatum } from 'd3-force';
 import { HierarchyNode } from 'd3-hierarchy';
 
 export interface BaseEntity {
@@ -386,7 +387,8 @@ export type ModelEntity = Unit | Division | Person | AcademicProgram;
 
 export interface DSINode
     extends Record<string, any>,
-        HierarchyNode<ModelEntity> {
+        HierarchyNode<ModelEntity>,
+        SimulationNodeDatum {
     selected?: boolean;
 }
 

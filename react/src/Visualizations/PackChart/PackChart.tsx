@@ -153,7 +153,7 @@ const buildPackChart = (
         view = v;
 
         label.attr('transform', d => {
-            return `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`;
+            return `translate(${(d.x! - v[0]) * k},${(d.y! - v[1]) * k})`;
         });
         node.attr(
             'transform',
@@ -186,7 +186,7 @@ const buildPackChart = (
             });
     };
 
-    zoomTo([root.x, root.y, root.r * 2]); // set view
+    zoomTo([root.x!, root.y!, root.r * 2]); // set view
 };
 
 export default PackChart;

@@ -36,6 +36,7 @@ import {
     ModelEntity,
 } from '../../types';
 import { CloseIcon } from '../../Icons';
+import { LocalDSINode } from '../../Visualizations/ForceGraph/ForceGraphLocalComponent';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -419,14 +420,7 @@ const ChartPage: React.FC = () => {
                     onClose={() => {
                         setLocalViewNode(undefined);
                     }}
-                    onNodeClick={n => {
-                        if (
-                            getEntityId(n.data) !==
-                            getEntityId(localViewNode.data)
-                        ) {
-                            setLocalViewNode(n);
-                        }
-                    }}
+                    resetViewNode={n => setLocalViewNode(n)}
                 />
             )}
         </Grid>
@@ -482,7 +476,7 @@ export default ChartPage;
 
 interface LocalViewProps {
     nodeId: string;
-    onNodeClick: (node: DSINode) => void;
+    resetViewNode: (node: LocalDSINode) => void;
     onClose: () => void;
     tree: DSINode;
 }
@@ -490,7 +484,7 @@ interface LocalViewProps {
 const LocalView: React.FC<LocalViewProps> = ({
     nodeId,
     onClose,
-    onNodeClick,
+    resetViewNode,
     tree,
 }) => (
     <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
@@ -509,7 +503,7 @@ const LocalView: React.FC<LocalViewProps> = ({
                 <CloseIcon />
             </IconButton>
             <ForceGraphLocal
-                onNodeClick={onNodeClick}
+                resetViewNode={resetViewNode}
                 selectedNodeId={nodeId}
                 tree={tree.copy()}
             />

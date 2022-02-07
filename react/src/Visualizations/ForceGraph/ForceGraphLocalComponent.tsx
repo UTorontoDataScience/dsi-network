@@ -63,7 +63,11 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
             const _graph = new LocalGraph(targetId, theme, resetViewNode);
             _graph.render(pruned, selectedNodeId);
             setGraph(_graph);
-        } else if (pruned && Graph) {
+        } else if (
+            pruned &&
+            Graph &&
+            selectedNodeId != Graph.selectedNode?.id
+        ) {
             Graph.render(pruned, selectedNodeId);
         }
     }, [Graph, resetViewNode, pruned, selectedNodeId, theme]);

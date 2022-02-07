@@ -6,20 +6,20 @@ import {
     forceSimulation,
     SimulationLinkDatum,
 } from 'd3-force';
-import { select, Selection } from 'd3-selection';
+import { BaseType, select, Selection } from 'd3-selection';
 import { getEntityId, makeTree } from '../../util';
 import {
     buildForceLinks,
     colorScale,
     DSISimulation,
     makeLinkKey,
-    makeNodeKey,
 } from './ForceGraph';
 import { LocalDSINode } from './ForceGraphLocalComponent';
 
 export default class D3ForceGraphLocal {
     h: number;
     resetViewNode: (node: LocalDSINode) => void;
+    selectedNode: LocalDSINode | null = null;
     simulation: DSISimulation;
     svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
     theme: Theme;
@@ -43,14 +43,10 @@ export default class D3ForceGraphLocal {
         this.simulation = forceSimulation();
     }
 
-    appendNodes = (
-        tree: LocalDSINode,
-        selectedNode: LocalDSINode,
-        nodeR: number
-    ) => {
+    appendNodes = (tree: LocalDSINode, nodeR: number) => {
         return this.svg
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
-            .data(tree.descendants(), (d, i) => (d ? makeNodeKey(d) : i))
+            .data(tree.descendants(), (d, i) => (d ? getEntityId(d.data) : i))
             .join(
                 enter => {
                     const enterNodeSelection = enter
@@ -63,7 +59,9 @@ export default class D3ForceGraphLocal {
                         .attr('r', () => nodeR)
                         .attr('fill', d => colorScale(d.data.type))
                         .attr('stroke', d =>
-                            d.children ? this.theme.palette.text.primary : null
+                            d.hasChildren
+                                ? this.theme.palette.text.primary
+                                : null
                         )
                         .transition('main')
                         .duration(1500)
@@ -82,22 +80,10 @@ export default class D3ForceGraphLocal {
 
                     return enterNodeSelection;
                 },
-                update => {
-                    const selected = update.filter(
-                        d => d.id === selectedNode.id
-                    );
-
-                    selected
-                        .select('circle')
-                        .transition()
-                        .duration(1500)
-                        .attr('r', () => nodeR);
-
-                    return update;
-                },
+                update => update,
                 exit => {
                     exit.select('circle')
-                        .transition('exiting')
+                        .transition()
                         .duration(500)
                         .attr('opacity', 0)
                         .remove();
@@ -106,49 +92,80 @@ export default class D3ForceGraphLocal {
                 }
             )
             .on('click', (_, d) => {
-                if (d.id !== selectedNode.id && d.hasChildren)
+                if (d.id !== this.selectedNode?.id && d.hasChildren)
                     this.resetViewNode(d);
             });
     };
 
-    appendSelectedNode = (
-        selectedNode: LocalDSINode,
-        onTransitionEnd: () => void
-    ) => {
+    appendSelectedNode = (onTransitionEnd: () => void) => {
         /* strip selected node of parents/children, as d3 will internally transform object into array of descendants via iterator */
         const node = makeTree(
-            [selectedNode.copy().data],
-            selectedNode.copy().data
+            [this.selectedNode!.copy().data],
+            this.selectedNode!.copy().data
         ) as LocalDSINode;
 
-        //node.selected = true; // this will put it in the exit selection b/c it won't have this attribute with appended w/ rest of tree
+        if (this.selectedNode?.children) {
+            node.hasChildren = true;
+        }
 
         this.svg
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
             .data(node, d => getEntityId(d.data))
-            .join('g')
-            .attr('class', 'circle-node')
-            .append('circle')
-            .attr('r', () => 50)
-            .attr('fill', d => colorScale(d.data.type))
-            .attr('stroke', d =>
-                d.children ? this.theme.palette.text.primary : null
-            )
-            .transition()
-            .duration(1500)
-            .attr('opacity', 1)
-            .end()
-            .then(() => onTransitionEnd());
+            .join(
+                enter => {
+                    const enterSelection = enter
+                        .append('g')
+                        .attr('class', 'circle-node');
+
+                    enterSelection
+                        .append('circle')
+                        .attr('r', () => 50)
+                        .attr('fill', d => colorScale(d.data.type))
+                        .attr('stroke', d =>
+                            d.hasChildren
+                                ? this.theme.palette.text.primary
+                                : null
+                        )
+                        .transition()
+                        .duration(500)
+                        .attr('opacity', 1)
+                        .end()
+                        .then(() => onTransitionEnd());
+
+                    enterSelection
+                        .append('text')
+                        .attr('fill', this.theme.palette.text.primary)
+                        .attr('opacity', 0)
+                        .text(d => d.data.name)
+                        .attr('text-anchor', 'middle')
+                        .style('user-select', 'none')
+                        .transition('text')
+                        .duration(500)
+                        .style('opacity', 0.75);
+
+                    return enterSelection;
+                },
+
+                update => {
+                    update
+                        .selectAll('circle')
+                        .transition()
+                        .duration(500)
+                        .attr('r', 50);
+
+                    return update;
+                },
+                exit => {
+                    exit.remove();
+                }
+            );
     };
 
-    buildChart = (selectedNode: LocalDSINode, tree: LocalDSINode) => {
-        this.appendSelectedNode(
-            selectedNode,
-            this.buildGraph.bind(this, selectedNode, tree)
-        );
+    buildChart = (tree: LocalDSINode) => {
+        this.appendSelectedNode(this.buildGraph.bind(this, tree));
     };
 
-    buildGraph = (selectedNode: LocalDSINode, tree: LocalDSINode) => {
+    buildGraph = (tree: LocalDSINode) => {
         const forceLinks = buildForceLinks(tree.links());
 
         const simulation: DSISimulation = forceSimulation();
@@ -206,13 +223,22 @@ export default class D3ForceGraphLocal {
                 }
             );
 
-        const nodeSelection = this.appendNodes(tree, selectedNode, nodeR);
+        const nodeSelection = this.appendNodes(tree, nodeR);
+
+        nodeSelection
+            .filter(n => getEntityId(n.data) === this.selectedNode?.id)
+            .each(n => {
+                n.fx = 0;
+                n.fy = 0;
+            });
+
+        /* ensure circles in front of lines; selection could be line or circle (or something else), but we're only checking for circles */
+        this.svg
+            .selectChildren<BaseType, LocalDSINode>()
+            .sort((a: LocalDSINode) => (a.data ? 1 : -1));
 
         simulation.on('tick', () => {
             nodeSelection.attr('transform', d => {
-                if (!d.x) {
-                    console.log(d);
-                }
                 return `translate(${d.x}, ${d.y})`;
             });
 
@@ -231,8 +257,7 @@ export default class D3ForceGraphLocal {
     };
 
     render = (tree: LocalDSINode, selectedNodeId: string) => {
-        const selectedNode = tree.find(n => selectedNodeId === n.id)!;
-
-        this.buildChart(selectedNode, tree);
+        this.selectedNode = tree.find(n => selectedNodeId === n.id)!;
+        this.buildChart(tree);
     };
 }

@@ -6,19 +6,19 @@ import { getEntityId } from '../../util';
 import D3ForceGraph from './ForceGraph';
 
 export interface SelectedModel {
-    type: EntityType;
     id: number;
+    type: EntityType;
 }
 interface ForceGraphProps {
     containerWidth: number;
     tree: HierarchyNode<ModelEntity>;
-    selectedCallback: (node: DSINode) => void;
+    onNodeClick: (node: DSINode) => void;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     containerWidth,
     tree,
-    selectedCallback,
+    onNodeClick,
 }) => {
     const [Graph, setGraph] = useState<D3ForceGraph>();
 
@@ -29,16 +29,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     /* initialize */
     useEffect(() => {
         if (tree && !Graph && containerWidth) {
-            const Graph = new D3ForceGraph(
-                targetId,
-                theme,
-                tree,
-                selectedCallback
-            );
+            const Graph = new D3ForceGraph(targetId, theme, tree, onNodeClick);
             Graph.render();
             setGraph(Graph);
         }
-    }, [Graph, containerWidth, tree, selectedCallback, theme]);
+    }, [Graph, containerWidth, tree, onNodeClick, theme]);
 
     /* toggle dark mode */
     useEffect(() => {
@@ -47,14 +42,24 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         }
     }, [theme, Graph]);
 
+    /* 
+        D3 isn't in the React tree and doesn't know when props change,
+          so we'll manually update to keep things in sync
+    */
+    useEffect(() => {
+        if (Graph && Graph.onNodeClick !== onNodeClick) {
+            Graph.onNodeClick = onNodeClick;
+        }
+    }, [Graph, onNodeClick]);
+
     useEffect(() => {
         /* replace graphic entirely when root changes */
         if (Graph && getEntityId(Graph.tree.data) !== getEntityId(tree.data)) {
             Graph.remove();
-            Graph.setTree(tree);
+            Graph.tree = tree;
             Graph.render();
-        } else {
-            Graph?.update(tree);
+        } else if (Graph) {
+            Graph.update(tree);
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [tree]);

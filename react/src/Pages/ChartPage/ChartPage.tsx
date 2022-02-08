@@ -224,6 +224,28 @@ const ChartPage: React.FC = () => {
             );
     }, [model]);
 
+    const handleNodeClick = useCallback(
+        (node: DSINode) => {
+            if (
+                node.selected &&
+                detailSelection.map(d =>
+                    getEntityId(d.data).includes(getEntityId(node.data))
+                )
+            ) {
+                setLocalViewNode(node);
+            } else {
+                setDetailSelection(
+                    tree0!
+                        .descendants()
+                        .filter(m => m.data.name === node.data.name)
+                );
+                setSelected([{ type: node.data.type, id: node.data.id }]);
+            }
+            setNameSearchInputString(node.data.name);
+        },
+        [detailSelection, tree0]
+    );
+
     const handleKeywordSearchSelect = (value?: string) => {
         setSelectedKeyword(value || '');
         if (value) {
@@ -309,19 +331,7 @@ const ChartPage: React.FC = () => {
                         {tree && containerWidth && (
                             <ForceGraph
                                 containerWidth={containerWidth}
-                                selectedCallback={(node: DSINode) => {
-                                    setDetailSelection(
-                                        tree0!
-                                            .descendants()
-                                            .filter(
-                                                m =>
-                                                    m.data.name ===
-                                                    node.data.name
-                                            )
-                                    );
-                                    setNameSearchInputString(node.data.name);
-                                    setLocalViewNode(node);
-                                }}
+                                onNodeClick={handleNodeClick}
                                 tree={tree}
                             />
                         )}

@@ -165,6 +165,7 @@ const registerDragHandler = (
         e: D3DragEvent<SVGGElement, DSINode, unknown>,
         d: DSINode
     ) => {
+        console.log(e);
         simulation.nodes().forEach(n => {
             n.fx = null;
             n.fy = null;
@@ -238,22 +239,22 @@ const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
     ['campus', 'division', 'institution'].includes(n.data.type);
 
 export default class D3ForceGraph {
-    globalZoom: ZoomBehavior<SVGSVGElement, unknown>;
-    globalZoomHandler: ({
+    private globalZoom: ZoomBehavior<SVGSVGElement, unknown>;
+    private globalZoomHandler: ({
         transform,
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
-    h: number;
-    svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
-    simulation: DSISimulation;
-    theme: Theme;
+    private h: number;
+    public onNodeClick: (node: DSINode) => void;
+    private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
+    private simulation: DSISimulation;
+    private theme: Theme;
     tree: DSINode;
-    updateCallback: (node: DSINode) => void;
-    w: number;
+    private w: number;
     constructor(
         selector: string,
         theme: Theme,
         tree: DSINode,
-        updateCallback: (node: DSINode) => void
+        onNodeClick: (node: DSINode) => void
     ) {
         this.theme = theme;
         this.tree = tree;
@@ -264,7 +265,7 @@ export default class D3ForceGraph {
             .attr('class', 'main')
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h])
             .style('border', `solid thin ${theme.palette.text.secondary}`);
-        this.updateCallback = updateCallback;
+        this.onNodeClick = onNodeClick;
 
         this.simulation = forceSimulation();
 
@@ -323,6 +324,7 @@ export default class D3ForceGraph {
 
         this.svg.on('click', function () {
             const currentZoom = zoomTransform(select(this).node()!).k;
+
             if (currentZoom > 1) {
                 that.resetZoom();
             }
@@ -345,7 +347,7 @@ export default class D3ForceGraph {
         appendToolTip();
     }
 
-    appendLinks = (forceLinks: DSIForceLinks) => {
+    private appendLinks = (forceLinks: DSIForceLinks) => {
         const selection = this.svg
             .select<SVGGElement>('g.line-container')
             .selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line')
@@ -382,7 +384,7 @@ export default class D3ForceGraph {
         return selection;
     };
 
-    appendNodes = (nodes: DSINode[]) => {
+    private appendNodes = (nodes: DSINode[]) => {
         const nodeSelection = this.svg
             .select('g.circle-container')
             .selectAll<SVGGElement, DSINode>('g.circle-node')
@@ -413,7 +415,7 @@ export default class D3ForceGraph {
 
                     enterNodeSelection
                         .append('circle')
-                        .attr('opacity', 0)
+                        .attr('opacity', 0.8)
                         .attr('r', d =>
                             getNodeSizeScale(nodes.length)(
                                 d.descendants().length
@@ -424,10 +426,7 @@ export default class D3ForceGraph {
                             return d.children
                                 ? this.theme.palette.text.primary
                                 : null;
-                        })
-                        .transition()
-                        .duration(500)
-                        .attr('opacity', 0.8);
+                        });
 
                     enterNodeSelection
                         .append('path')
@@ -468,7 +467,7 @@ export default class D3ForceGraph {
         );
     };
 
-    buildSimulation = (
+    private buildSimulation = (
         nodes: DSINode[],
         w: number,
         forceLinks: DSIForceLinks
@@ -486,10 +485,10 @@ export default class D3ForceGraph {
             .force('center', forceCenter())
             .velocityDecay(0.1);
 
-    registerNodeClickBehavior = (selection: DSINodeSelection) =>
+    private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
-            this.updateCallback(node);
+            this.onNodeClick(node);
         });
 
     remove = () => this.svg.selectAll('.container').selectAll('*').remove();
@@ -522,8 +521,6 @@ export default class D3ForceGraph {
                 this.globalZoom.transform,
                 zoomIdentity.translate(0, 0).scale(1)
             );
-
-    setTree = (tree: DSINode) => (this.tree = tree);
 
     toggleTheme = (theme: Theme) => {
         this.theme = theme;
@@ -589,7 +586,8 @@ export default class D3ForceGraph {
         registerTickHandler(this.simulation!, linkSelection, nodeSelection);
 
         this.simulation.force('center', null);
-        this.simulation.alpha(0.3);
+        this.simulation.alpha(0.05);
+        this.simulation.velocityDecay(0.9);
         this.simulation.restart();
 
         const selectedNodes = this.simulation.nodes().filter(n => n.selected);

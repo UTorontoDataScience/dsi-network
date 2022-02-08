@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Box, capitalize, Theme, useTheme } from '@mui/material';
+import { capitalize, Theme } from '@mui/material';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { D3DragEvent, drag } from 'd3-drag';
 import { easeCubicIn } from 'd3-ease';
-import { HierarchyLink, HierarchyNode } from 'd3-hierarchy';
+import { HierarchyLink } from 'd3-hierarchy';
 import { ScaleLinear, scaleLinear, scaleOrdinal } from 'd3-scale';
-import { Selection, BaseType, select, selectAll } from 'd3-selection';
+import { Selection, BaseType, select } from 'd3-selection';
 import {
     D3ZoomEvent,
     zoom,
@@ -25,88 +24,14 @@ import {
     SimulationLinkDatum,
     SimulationNodeDatum,
 } from 'd3-force';
-import { EntityType, ModelEntity } from '../../types';
+import { DSINode, EntityType, ModelEntity } from '../../types';
 import { getEntityId, mapTree } from '../../util';
 
-// for debugging
-(window as any).d3Select = select;
-(window as any).d3SelectAll = selectAll;
-
-type DSISimulation = Simulation<DSINode, SimulationLinkDatum<DSINode>>;
+export type DSISimulation = Simulation<DSINode, SimulationLinkDatum<DSINode>>;
 
 type DSIForceLinks = ForceLink<DSINode, SimulationLinkDatum<DSINode>>;
 
 type DSINodeSelection = Selection<SVGGElement, DSINode, BaseType, unknown>;
-
-export interface SelectedModel {
-    type: EntityType;
-    id: number;
-}
-interface ForceGraphProps {
-    containerWidth: number;
-    tree: HierarchyNode<ModelEntity>;
-    selectedCallback: (node: DSINode) => void;
-}
-
-const ForceGraph: React.FC<ForceGraphProps> = ({
-    containerWidth,
-    tree,
-    selectedCallback,
-}) => {
-    const [Graph, setGraph] = useState<D3ForceGraph>();
-
-    const theme = useTheme();
-
-    const targetId = 'target';
-
-    /* initialize */
-    useEffect(() => {
-        if (tree && !Graph && containerWidth) {
-            const Graph = new D3ForceGraph(
-                targetId,
-                theme,
-                tree,
-                selectedCallback
-            );
-            Graph.render();
-            setGraph(Graph);
-        }
-    }, [Graph, containerWidth, tree, selectedCallback, theme]);
-
-    /* toggle dark mode */
-    useEffect(() => {
-        if (Graph) {
-            Graph.toggleTheme(theme);
-        }
-    }, [theme, Graph]);
-
-    /* replace graphic entirely when root changes */
-    useEffect(() => {
-        if (Graph && getEntityId(Graph.tree.data) !== getEntityId(tree.data)) {
-            selectAll('svg').remove();
-
-            const Graph = new D3ForceGraph(
-                targetId,
-                theme,
-                tree,
-                selectedCallback
-            );
-            Graph.render();
-            setGraph(Graph);
-        } else {
-            Graph?.update(tree);
-        }
-        /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [tree]);
-
-    return containerWidth ? (
-        <Box
-            width={`${containerWidth}px`}
-            border={`solid thin ${theme.palette.text.secondary}`}
-            id={targetId}
-        />
-    ) : null;
-};
 
 const entityTypes: EntityType[] = [
     'campus',
@@ -118,7 +43,7 @@ const entityTypes: EntityType[] = [
     'unit',
 ];
 
-const colorScale = scaleOrdinal(
+export const colorScale = scaleOrdinal(
     // remove red, b/c it's close to highlight color
     // remove gray, b/c it's close to dark font
     schemeCategory10.filter((_, i) => ![3, 7].includes(i))
@@ -141,30 +66,26 @@ const getLabelYOffset = (x: number, y: number) => {
     const distanceScaled = getLabelOffsetScale(500)(distance);
     return y > 0 ? -distanceScaled : distanceScaled;
 };
-interface DSINode
-    extends Record<string, any>,
-        HierarchyNode<ModelEntity>,
-        SimulationNodeDatum {
-    selected?: boolean;
-}
 
 /**
  *  Unique key used to identify nodes for d3.join process and mapping simulation links to source/target
  */
-const makeNodeKey = (datum: DSINode) => {
+export const makeNodeKey = (datum: DSINode) => {
     return `${datum.data.id}-${datum.data.type}-${datum.parent?.data.id}-${datum.data.relationship}-${datum.selected}`;
 };
 
 /**
  *  Unique key used to identify links for d3.join process
  */
-const makeLinkKey = <T extends DSINode>(link: SimulationLinkDatum<T>) => {
+export const makeLinkKey = <T extends DSINode>(
+    link: SimulationLinkDatum<T>
+) => {
     const source = link.source as DSINode;
     const target = link.target as DSINode;
     return `${source.data.id}-${source.parent?.id}-${target.selected}-${target.data.id}`;
 };
 
-const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
+export const buildForceLinks = (links: HierarchyLink<ModelEntity>[]) =>
     forceLink<DSINode, SimulationLinkDatum<DSINode>>(links).id(model =>
         makeNodeKey(model)
     );
@@ -244,7 +165,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.1).restart();
+        simulation.alphaTarget(0.01).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -312,35 +233,34 @@ const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
     n.descendants().length / tree.descendants().length > 0.05 &&
     ['campus', 'division', 'institution'].includes(n.data.type);
 
-class D3ForceGraph {
-    globalZoom: ZoomBehavior<SVGSVGElement, unknown>;
-    globalZoomHandler: ({
+export default class D3ForceGraph {
+    private globalZoom: ZoomBehavior<SVGSVGElement, unknown>;
+    private globalZoomHandler: ({
         transform,
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
-    h: number;
-    selector: string;
-    svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
-    simulation: DSISimulation;
-    theme: Theme;
+    private h: number;
+    public onNodeClick: (node: DSINode, resetZoom: () => void) => void;
+    private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
+    private simulation: DSISimulation;
+    private theme: Theme;
     tree: DSINode;
-    updateCallback: (node: DSINode) => void;
-    w: number;
+    private w: number;
     constructor(
         selector: string,
         theme: Theme,
         tree: DSINode,
-        updateCallback: (node: DSINode) => void
+        onNodeClick: (node: DSINode, resetZoom: () => void) => void
     ) {
-        this.selector = selector;
         this.theme = theme;
         this.tree = tree;
         this.w = 1000;
-        this.h = 1000;
-        this.svg = select(`#${this.selector}`)
+        this.h = 825;
+        this.svg = select(`#${selector}`)
             .append('svg')
             .attr('class', 'main')
-            .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h]);
-        this.updateCallback = updateCallback;
+            .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h])
+            .style('border', `solid thin ${theme.palette.text.secondary}`);
+        this.onNodeClick = onNodeClick;
 
         this.simulation = forceSimulation();
 
@@ -399,6 +319,7 @@ class D3ForceGraph {
 
         this.svg.on('click', function () {
             const currentZoom = zoomTransform(select(this).node()!).k;
+
             if (currentZoom > 1) {
                 that.resetZoom();
             }
@@ -421,7 +342,7 @@ class D3ForceGraph {
         appendToolTip();
     }
 
-    appendLinks = (forceLinks: DSIForceLinks) => {
+    private appendLinks = (forceLinks: DSIForceLinks) => {
         const selection = this.svg
             .select<SVGGElement>('g.line-container')
             .selectAll<SVGLineElement, SimulationLinkDatum<DSINode>>('line')
@@ -458,7 +379,7 @@ class D3ForceGraph {
         return selection;
     };
 
-    appendNodes = (nodes: DSINode[]) => {
+    private appendNodes = (nodes: DSINode[]) => {
         const nodeSelection = this.svg
             .select('g.circle-container')
             .selectAll<SVGGElement, DSINode>('g.circle-node')
@@ -489,7 +410,7 @@ class D3ForceGraph {
 
                     enterNodeSelection
                         .append('circle')
-                        .attr('opacity', 0)
+                        .attr('opacity', 0.8)
                         .attr('r', d =>
                             getNodeSizeScale(nodes.length)(
                                 d.descendants().length
@@ -500,10 +421,7 @@ class D3ForceGraph {
                             return d.children
                                 ? this.theme.palette.text.primary
                                 : null;
-                        })
-                        .transition()
-                        .duration(500)
-                        .attr('opacity', 0.8);
+                        });
 
                     enterNodeSelection
                         .append('path')
@@ -530,7 +448,7 @@ class D3ForceGraph {
                     exit.remove();
                 }
             )
-            //ensure selected are in "front"
+            //ensure selected nodes are in "front"
             .sort(a => (a.selected ? 1 : -1));
 
         nodeSelection
@@ -538,13 +456,13 @@ class D3ForceGraph {
             .call(registerOnHover, getNodeSizeScale(nodes.length))
             .call(this.registerNodeClickBehavior, this.svg);
 
-        //ensure labeled groups are in "back"
+        //ensure labeled groups are in "back" to prevent text from capturing mouse events intended for nodes
         return nodeSelection.sort(a =>
             getShouldShowLabel(a, this.tree) ? -1 : 1
         );
     };
 
-    buildSimulation = (
+    private buildSimulation = (
         nodes: DSINode[],
         w: number,
         forceLinks: DSIForceLinks
@@ -554,20 +472,21 @@ class D3ForceGraph {
             .force(
                 'charge',
                 forceManyBody()
-                    .strength(-50)
-                    .distanceMax(w / 3)
+                    .strength(-40)
+                    .distanceMax(w / 3.1)
             )
             .force('links', forceLinks.distance(w / 40).strength(1))
-            .force('collision', forceCollide().radius(6))
+            .force('collision', forceCollide().radius(7))
             .force('center', forceCenter())
             .velocityDecay(0.1);
 
-    registerNodeClickBehavior = (selection: DSINodeSelection) =>
+    private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
-            this.zoomToNode(node);
-            this.updateCallback(node);
+            this.onNodeClick(node, this.resetZoom.bind(this));
         });
+
+    remove = () => this.svg.selectAll('.container').selectAll('*').remove();
 
     render = () => {
         if (this.tree) {
@@ -578,6 +497,12 @@ class D3ForceGraph {
             const nodeSelection = this.appendNodes(this.simulation.nodes());
 
             const linkSelection = this.appendLinks(forceLinks);
+
+            /* if this is a rerender, reheat sim */
+            if (this.simulation.alpha() < 1) {
+                this.simulation.alpha(1);
+                this.simulation.restart();
+            }
 
             registerTickHandler(this.simulation, linkSelection, nodeSelection);
         }
@@ -628,8 +553,8 @@ class D3ForceGraph {
             ...n,
             ...(simNodeLocationMap[getEntityId(n.data)]
                 ? simNodeLocationMap[getEntityId(n.data)]
-                : // b/c we are inserting/removing only leaf nodes,
-                  // we can confidently set the starting position to the parent's for a smooter entry
+                : /*  b/c we are inserting/removing only leaf nodes,
+                   we can set the starting position to the parent's for a smoother entry transition */
                   simNodeLocationMap[getEntityId(n.parent!.data)]),
         }));
 
@@ -652,11 +577,12 @@ class D3ForceGraph {
         const linkSelection = this.appendLinks(forceLinks);
         const nodeSelection = this.appendNodes(this.simulation!.nodes());
 
-        //since references have been broken w/ previous data, we need to reregister handler w/ new selections
+        // references have been broken w/ previous data, so we need to reregister handler
         registerTickHandler(this.simulation!, linkSelection, nodeSelection);
 
         this.simulation.force('center', null);
-        this.simulation.alpha(0.3);
+        this.simulation.alpha(0.05);
+        this.simulation.velocityDecay(0.9);
         this.simulation.restart();
 
         const selectedNodes = this.simulation.nodes().filter(n => n.selected);
@@ -674,5 +600,3 @@ class D3ForceGraph {
             zoomIdentity.translate(0, 0).scale(3).translate(-node.x!, -node.y!)
         );
 }
-
-export default ForceGraph;

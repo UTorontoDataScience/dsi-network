@@ -165,7 +165,6 @@ const registerDragHandler = (
         e: D3DragEvent<SVGGElement, DSINode, unknown>,
         d: DSINode
     ) => {
-        console.log(e);
         simulation.nodes().forEach(n => {
             n.fx = null;
             n.fy = null;
@@ -244,7 +243,7 @@ export default class D3ForceGraph {
         transform,
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
     private h: number;
-    public onNodeClick: (node: DSINode) => void;
+    public onNodeClick: (node: DSINode, resetZoom: () => void) => void;
     private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
     private simulation: DSISimulation;
     private theme: Theme;
@@ -254,7 +253,7 @@ export default class D3ForceGraph {
         selector: string,
         theme: Theme,
         tree: DSINode,
-        onNodeClick: (node: DSINode) => void
+        onNodeClick: (node: DSINode, resetZoom: () => void) => void
     ) {
         this.theme = theme;
         this.tree = tree;
@@ -488,7 +487,7 @@ export default class D3ForceGraph {
     private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
-            this.onNodeClick(node);
+            this.onNodeClick(node, this.resetZoom.bind(this));
         });
 
     remove = () => this.svg.selectAll('.container').selectAll('*').remove();

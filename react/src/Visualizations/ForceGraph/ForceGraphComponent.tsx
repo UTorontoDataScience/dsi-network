@@ -12,7 +12,7 @@ export interface SelectedModel {
 interface ForceGraphProps {
     containerWidth: number;
     tree: HierarchyNode<ModelEntity>;
-    onNodeClick: (node: DSINode) => void;
+    onNodeClick: (node: DSINode, resetZoom: () => void) => void;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({

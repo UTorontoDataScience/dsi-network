@@ -225,7 +225,7 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     const handleNodeClick = useCallback(
-        (node: DSINode) => {
+        (node: DSINode, resetZoom: () => void) => {
             if (
                 node.selected &&
                 detailSelection.map(d =>
@@ -233,6 +233,7 @@ const ChartPage: React.FC = () => {
                 )
             ) {
                 setLocalViewNode(node);
+                resetZoom();
             } else {
                 setDetailSelection(
                     tree0!

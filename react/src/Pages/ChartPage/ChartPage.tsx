@@ -225,7 +225,7 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     const handleNodeClick = useCallback(
-        (node: DSINode, resetZoom: () => void) => {
+        (node: DSINode, resetZoom: () => void, zoomToNode: () => void) => {
             if (
                 node.selected &&
                 detailSelection
@@ -240,7 +240,10 @@ const ChartPage: React.FC = () => {
                         .descendants()
                         .filter(m => m.data.name === node.data.name)
                 );
-                setSelected([{ type: node.data.type, id: node.data.id }]);
+                if (!node.selected) {
+                    setSelected([{ type: node.data.type, id: node.data.id }]);
+                }
+                zoomToNode();
             }
             setNameSearchInputString(node.data.name);
         },

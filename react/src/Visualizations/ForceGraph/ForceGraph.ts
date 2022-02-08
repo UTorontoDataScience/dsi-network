@@ -165,7 +165,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.01).restart();
+        simulation.force('charge', null).alphaTarget(0.01).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -239,7 +239,11 @@ export default class D3ForceGraph {
         transform,
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
     private h: number;
-    public onNodeClick: (node: DSINode, resetZoom: () => void) => void;
+    public onNodeClick: (
+        node: DSINode,
+        resetZoom: () => void,
+        zoomToNode: () => void
+    ) => void;
     private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
     private simulation: DSISimulation;
     private theme: Theme;
@@ -249,7 +253,11 @@ export default class D3ForceGraph {
         selector: string,
         theme: Theme,
         tree: DSINode,
-        onNodeClick: (node: DSINode, resetZoom: () => void) => void
+        onNodeClick: (
+            node: DSINode,
+            resetZoom: () => void,
+            zoomToNode: () => void
+        ) => void
     ) {
         this.theme = theme;
         this.tree = tree;
@@ -483,7 +491,11 @@ export default class D3ForceGraph {
     private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
-            this.onNodeClick(node, this.resetZoom.bind(this));
+            this.onNodeClick(
+                node,
+                this.resetZoom.bind(this),
+                this.zoomToNode.bind(this, node)
+            );
         });
 
     remove = () => this.svg.selectAll('.container').selectAll('*').remove();
@@ -582,7 +594,7 @@ export default class D3ForceGraph {
 
         this.simulation.force('center', null);
         this.simulation.alpha(0.05);
-        this.simulation.velocityDecay(0.9);
+        this.simulation.velocityDecay(0.5);
         this.simulation.restart();
 
         const selectedNodes = this.simulation.nodes().filter(n => n.selected);

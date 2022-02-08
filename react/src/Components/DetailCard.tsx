@@ -40,8 +40,10 @@ const DetailCard: React.FC<DetailCardProps> = ({ nodes }) => {
                 <Typography color="primary" variant="h4">
                     {nodes[0].data.name}
                 </Typography>
+                <CardContent sx={{ padding: 0 }}>
+                    {resolveDetailComponent(nodes)}
+                </CardContent>
             </Box>
-            <CardContent>{resolveDetailComponent(nodes)}</CardContent>
         </Card>
     );
 };
@@ -109,7 +111,7 @@ interface KeywordListProps {
 
 const KeywordList: React.FC<KeywordListProps> = ({ keywords, label }) => (
     <>
-        <Divider />
+        <Divider sx={{ marginTop: 1, marginBottom: 1 }} />
         <Typography variant="caption">
             <Box component="span" fontWeight="bold">
                 {label}:{' '}

@@ -106,8 +106,11 @@ export default class D3ForceGraphLocal {
                 }
             )
             .on('click', (_, d) => {
-                if (d.id !== this.selectedNode?.id && d.hasChildren)
+                if (d.id !== this.selectedNode?.id && d.hasChildren) {
                     this.resetViewNode(d);
+                } else if (d.id === this.selectedNode?.id && d.parent) {
+                    this.resetViewNode(d.parent);
+                }
             });
     };
 
@@ -241,12 +244,16 @@ export default class D3ForceGraphLocal {
 
         this.simulation
             .nodes(tree.descendants())
-            .force('charge', forceManyBody().strength(-50))
+            .force('charge', forceManyBody().strength(-25))
             .force(
                 'links',
                 forceLinks.distance(maxDistance - nodeR).strength(1)
             )
-            .force('center', forceCenter())
+            //center force will override charge when leaf node selected
+            .force(
+                'center',
+                tree.descendants().length > 2 ? forceCenter() : null
+            )
             .velocityDecay(0.1);
 
         /* fix selected node to prevent wobblying as sim fires */

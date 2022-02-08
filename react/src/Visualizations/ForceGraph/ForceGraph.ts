@@ -169,7 +169,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.02).restart();
+        simulation.alphaTarget(0.01).restart();
         d.fx = d.x;
         d.fy = d.y;
     };

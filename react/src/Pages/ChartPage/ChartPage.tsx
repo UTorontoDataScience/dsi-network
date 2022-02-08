@@ -3,6 +3,7 @@ import {
     Autocomplete,
     Backdrop,
     capitalize,
+    Fade,
     FormControl,
     Grid,
     IconButton,
@@ -487,26 +488,28 @@ const LocalView: React.FC<LocalViewProps> = ({
     resetViewNode,
     tree,
 }) => (
-    <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
-        <Paper sx={{ flexGrow: 1, padding: 15 }}>
-            <IconButton
-                disableFocusRipple={true}
-                disableRipple={true}
-                onClick={onClose}
-                sx={{
-                    position: 'absolute',
-                    top: 10,
-                    left: 10,
-                    width: '5%',
-                }}
-            >
-                <CloseIcon />
-            </IconButton>
-            <ForceGraphLocal
-                resetViewNode={resetViewNode}
-                selectedNodeId={nodeId}
-                tree={tree.copy()}
-            />
-        </Paper>
-    </Backdrop>
+    <Fade timeout={500} in={true}>
+        <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
+            <Paper sx={{ flexGrow: 1, padding: 15 }}>
+                <IconButton
+                    disableFocusRipple={true}
+                    disableRipple={true}
+                    onClick={onClose}
+                    sx={{
+                        position: 'absolute',
+                        top: 10,
+                        left: 10,
+                        width: '5%',
+                    }}
+                >
+                    <CloseIcon />
+                </IconButton>
+                <ForceGraphLocal
+                    resetViewNode={resetViewNode}
+                    selectedNodeId={nodeId}
+                    tree={tree.copy()}
+                />
+            </Paper>
+        </Backdrop>
+    </Fade>
 );

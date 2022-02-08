@@ -4,7 +4,7 @@ import { D3DragEvent, drag } from 'd3-drag';
 import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink } from 'd3-hierarchy';
 import { ScaleLinear, scaleLinear, scaleOrdinal } from 'd3-scale';
-import { Selection, BaseType, select, selectAll } from 'd3-selection';
+import { Selection, BaseType, select } from 'd3-selection';
 import {
     D3ZoomEvent,
     zoom,

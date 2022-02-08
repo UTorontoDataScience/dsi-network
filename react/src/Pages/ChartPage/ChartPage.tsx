@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Autocomplete,
+    Backdrop,
     capitalize,
+    Fade,
     FormControl,
     Grid,
+    IconButton,
     InputLabel,
     MenuItem,
+    Paper,
     Select,
     SelectChangeEvent,
     Tab,
@@ -14,15 +18,16 @@ import {
     Typography,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
-import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraph';
 import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import {
     ForceGraph,
+    ForceGraphLocal,
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
+import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraphComponent';
 import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
 import {
     DSINode,
@@ -31,12 +36,15 @@ import {
     isResource,
     ModelEntity,
 } from '../../types';
+import { CloseIcon } from '../../Icons';
+import { LocalDSINode } from '../../Visualizations/ForceGraph/ForceGraphLocalComponent';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [detailSelection, setDetailSelection] = useState<
         HierarchyNode<ModelEntity>[]
     >([]);
+    const [localViewNode, setLocalViewNode] = useState<DSINode>();
     const [model, setModel] = useState<ModelEntity[]>();
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<SelectedModel[]>([]);
@@ -58,6 +66,17 @@ const ChartPage: React.FC = () => {
             setRoot(model.find(m => m.type === 'network'));
         };
         _getModel();
+    }, []);
+
+    useEffect(() => {
+        const listener = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setLocalViewNode(undefined);
+            }
+        };
+        window.addEventListener('keydown', listener);
+
+        return () => window.removeEventListener('keydown', listener);
     }, []);
 
     /* 
@@ -205,6 +224,29 @@ const ChartPage: React.FC = () => {
             );
     }, [model]);
 
+    const handleNodeClick = useCallback(
+        (node: DSINode, resetZoom: () => void) => {
+            if (
+                node.selected &&
+                detailSelection
+                    .map(d => getEntityId(d.data))
+                    .includes(getEntityId(node.data))
+            ) {
+                setLocalViewNode(node);
+                resetZoom();
+            } else {
+                setDetailSelection(
+                    tree0!
+                        .descendants()
+                        .filter(m => m.data.name === node.data.name)
+                );
+                setSelected([{ type: node.data.type, id: node.data.id }]);
+            }
+            setNameSearchInputString(node.data.name);
+        },
+        [detailSelection, tree0]
+    );
+
     const handleKeywordSearchSelect = (value?: string) => {
         setSelectedKeyword(value || '');
         if (value) {
@@ -290,18 +332,7 @@ const ChartPage: React.FC = () => {
                         {tree && containerWidth && (
                             <ForceGraph
                                 containerWidth={containerWidth}
-                                selectedCallback={(node: DSINode) => {
-                                    setDetailSelection(
-                                        tree0!
-                                            .descendants()
-                                            .filter(
-                                                m =>
-                                                    m.data.name ===
-                                                    node.data.name
-                                            )
-                                    );
-                                    setNameSearchInputString(node.data.name);
-                                }}
+                                onNodeClick={handleNodeClick}
                                 tree={tree}
                             />
                         )}
@@ -394,6 +425,16 @@ const ChartPage: React.FC = () => {
                     )}
                 </Grid>
             )}
+            {tree0 && !!localViewNode && (
+                <LocalView
+                    tree={tree0}
+                    nodeId={getEntityId(localViewNode.data)}
+                    onClose={() => {
+                        setLocalViewNode(undefined);
+                    }}
+                    resetViewNode={n => setLocalViewNode(n)}
+                />
+            )}
         </Grid>
     );
 };
@@ -444,3 +485,42 @@ const ChartPageAutocomplete: React.FC<ChartPageAutocompleteProps> = ({
 );
 
 export default ChartPage;
+
+interface LocalViewProps {
+    nodeId: string;
+    resetViewNode: (node: LocalDSINode) => void;
+    onClose: () => void;
+    tree: DSINode;
+}
+
+const LocalView: React.FC<LocalViewProps> = ({
+    nodeId,
+    onClose,
+    resetViewNode,
+    tree,
+}) => (
+    <Fade timeout={500} in={true}>
+        <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
+            <Paper sx={{ flexGrow: 1, padding: 15 }}>
+                <IconButton
+                    disableFocusRipple={true}
+                    disableRipple={true}
+                    onClick={onClose}
+                    sx={{
+                        position: 'absolute',
+                        top: 10,
+                        left: 10,
+                        width: '5%',
+                    }}
+                >
+                    <CloseIcon />
+                </IconButton>
+                <ForceGraphLocal
+                    resetViewNode={resetViewNode}
+                    selectedNodeId={nodeId}
+                    tree={tree.copy()}
+                />
+            </Paper>
+        </Backdrop>
+    </Fade>
+);

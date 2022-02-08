@@ -38,17 +38,18 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
         [selectedNodeId, tree]
     );
 
-    const pruned = useMemo(() => {
+    const neighborhood = useMemo(() => {
         if (root) {
             const parent = root?.parent?.data || [];
             const children = (root.children || []).map(d => d.data);
 
-            const pruned = makeTree(
+            const neighborhood = makeTree(
                 [root.data].concat(parent).concat(children),
                 root?.parent?.data || root.data
             );
 
-            return mapTree(pruned, t => ({
+            /* replace children with flag, so visualization knows there is additional depth */
+            return mapTree(neighborhood, t => ({
                 ...t,
                 hasChildren: treeMap[t.id!],
             })) as LocalDSINode;
@@ -57,20 +58,20 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
 
     const targetId = 'local-target';
 
-    /* initialize */
+    /* initialize/update */
     useEffect(() => {
-        if (pruned && !Graph) {
+        if (neighborhood && !Graph) {
             const _graph = new LocalGraph(targetId, theme, resetViewNode);
-            _graph.render(pruned, selectedNodeId);
+            _graph.render(neighborhood, selectedNodeId);
             setGraph(_graph);
         } else if (
-            pruned &&
+            neighborhood &&
             Graph &&
             selectedNodeId != Graph.selectedNode?.id
         ) {
-            Graph.render(pruned, selectedNodeId);
+            Graph.render(neighborhood, selectedNodeId);
         }
-    }, [Graph, resetViewNode, pruned, selectedNodeId, theme]);
+    }, [Graph, resetViewNode, neighborhood, selectedNodeId, theme]);
 
     return <Box id={targetId} display="flex" flexGrow={1} />;
 };

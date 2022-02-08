@@ -1,5 +1,5 @@
 import { Theme } from '@mui/material';
-import { easeCubicIn } from 'd3-ease';
+import { easeCubicIn, easeLinear, easeQuadIn } from 'd3-ease';
 import {
     forceCenter,
     forceManyBody,
@@ -7,6 +7,7 @@ import {
     SimulationLinkDatum,
 } from 'd3-force';
 import { BaseType, select, Selection } from 'd3-selection';
+import { transition } from 'd3-transition';
 import { getEntityId, makeTree } from '../../util';
 import {
     buildForceLinks,
@@ -15,6 +16,22 @@ import {
     makeLinkKey,
 } from './ForceGraph';
 import { LocalDSINode } from './ForceGraphLocalComponent';
+
+const lineExitTransition = <T>(
+    selection: Selection<SVGLineElement, T, any, any>
+) =>
+    selection
+        .transition()
+        .duration(250)
+        .ease(easeCubicIn)
+        .attr('opacity', 0)
+        .attr('x2', function () {
+            return select(this).attr('x1');
+        })
+        .attr('y2', function () {
+            return select(this).attr('y1');
+        })
+        .remove();
 
 export default class D3ForceGraphLocal {
     h: number;
@@ -51,7 +68,10 @@ export default class D3ForceGraphLocal {
                 enter => {
                     const enterNodeSelection = enter
                         .append('g')
-                        .attr('class', 'circle-node');
+                        .attr('class', 'circle-node')
+                        .style('cursor', d =>
+                            d.hasChildren ? 'pointer' : null
+                        );
 
                     enterNodeSelection
                         .append('circle')
@@ -64,7 +84,7 @@ export default class D3ForceGraphLocal {
                                 : null
                         )
                         .transition('main')
-                        .duration(1500)
+                        .duration(500)
                         .attr('opacity', 1);
 
                     enterNodeSelection
@@ -82,12 +102,6 @@ export default class D3ForceGraphLocal {
                 },
                 update => update,
                 exit => {
-                    exit.select('circle')
-                        .transition()
-                        .duration(500)
-                        .attr('opacity', 0)
-                        .remove();
-
                     exit.remove();
                 }
             )
@@ -97,8 +111,8 @@ export default class D3ForceGraphLocal {
             });
     };
 
-    appendSelectedNode = (onTransitionEnd: () => void) => {
-        /* strip selected node of parents/children, as d3 will internally transform object into array of descendants via iterator */
+    appendSelectedNode = () => {
+        /* strip selected node of parents/children b/c d3 will internally transform object into array of descendants via iterator */
         const node = makeTree(
             [this.selectedNode!.copy().data],
             this.selectedNode!.copy().data
@@ -108,6 +122,8 @@ export default class D3ForceGraphLocal {
             node.hasChildren = true;
         }
 
+        const t = transition().duration(500).ease(easeLinear).end();
+
         this.svg
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
             .data(node, d => getEntityId(d.data))
@@ -115,7 +131,10 @@ export default class D3ForceGraphLocal {
                 enter => {
                     const enterSelection = enter
                         .append('g')
-                        .attr('class', 'circle-node');
+                        .attr('class', 'circle-node')
+                        .style('cursor', d =>
+                            d.hasChildren ? 'pointer' : null
+                        );
 
                     enterSelection
                         .append('circle')
@@ -126,11 +145,10 @@ export default class D3ForceGraphLocal {
                                 ? this.theme.palette.text.primary
                                 : null
                         )
-                        .transition()
+                        /* typing here is unclear */
+                        .transition(t as any)
                         .duration(500)
-                        .attr('opacity', 1)
-                        .end()
-                        .then(() => onTransitionEnd());
+                        .attr('opacity', 1);
 
                     enterSelection
                         .append('text')
@@ -141,6 +159,7 @@ export default class D3ForceGraphLocal {
                         .style('user-select', 'none')
                         .transition('text')
                         .duration(500)
+                        .ease(easeQuadIn)
                         .style('opacity', 0.75);
 
                     return enterSelection;
@@ -153,22 +172,39 @@ export default class D3ForceGraphLocal {
                         .duration(500)
                         .attr('r', 50);
 
+                    update
+                        .transition()
+                        .duration(500)
+                        .attr('transform', 'translate(0,0)');
+
                     return update;
                 },
-                exit => {
-                    exit.remove();
-                }
+                exit => exit.remove()
             );
+
+        this.svg
+            .selectAll<SVGLineElement, any>('line')
+            .data([])
+            .join(
+                enter => enter,
+                update => update,
+                exit => exit.call(lineExitTransition)
+            );
+
+        return t;
     };
 
-    buildChart = (tree: LocalDSINode) => {
-        this.appendSelectedNode(this.buildGraph.bind(this, tree));
+    buildChart = async (tree: LocalDSINode) => {
+        //stop sim to prevent tick callback from firing on exited nodes
+        this.simulation.stop();
+        await this.appendSelectedNode();
+        this.appendAllNodesAndLinks(tree);
+        this.simulation.alpha(1);
+        this.simulation.restart();
     };
 
-    buildGraph = (tree: LocalDSINode) => {
+    appendAllNodesAndLinks = (tree: LocalDSINode) => {
         const forceLinks = buildForceLinks(tree.links());
-
-        const simulation: DSISimulation = forceSimulation();
 
         const maxDistance = this.w / 4;
 
@@ -178,16 +214,6 @@ export default class D3ForceGraphLocal {
             circumference / tree.descendants().length / 4,
             50
         );
-
-        simulation
-            .nodes(tree.descendants())
-            .force('charge', forceManyBody().strength(-100))
-            .force(
-                'links',
-                forceLinks.distance(maxDistance - nodeR).strength(1)
-            )
-            .force('center', forceCenter())
-            .velocityDecay(0.1);
 
         const linkSelection = this.svg
             .selectAll<SVGLineElement, SimulationLinkDatum<LocalDSINode>>(
@@ -208,23 +234,22 @@ export default class D3ForceGraphLocal {
                     return enterSelection;
                 },
                 update => update,
-                function (exit) {
-                    exit.transition()
-                        .duration(250)
-                        .ease(easeCubicIn)
-                        .attr('opacity', 0)
-                        .attr('x2', function () {
-                            return select(this).attr('x1');
-                        })
-                        .attr('y2', function () {
-                            return select(this).attr('y1');
-                        })
-                        .remove();
-                }
+                exit => exit.call(lineExitTransition)
             );
 
         const nodeSelection = this.appendNodes(tree, nodeR);
 
+        this.simulation
+            .nodes(tree.descendants())
+            .force('charge', forceManyBody().strength(-50))
+            .force(
+                'links',
+                forceLinks.distance(maxDistance - nodeR).strength(1)
+            )
+            .force('center', forceCenter())
+            .velocityDecay(0.1);
+
+        /* fix selected node to prevent wobblying as sim fires */
         nodeSelection
             .filter(n => getEntityId(n.data) === this.selectedNode?.id)
             .each(n => {
@@ -237,15 +262,17 @@ export default class D3ForceGraphLocal {
             .selectChildren<BaseType, LocalDSINode>()
             .sort((a: LocalDSINode) => (a.data ? 1 : -1));
 
-        simulation.on('tick', () => {
-            nodeSelection.attr('transform', d => {
-                return `translate(${d.x}, ${d.y})`;
-            });
+        this.simulation.on('tick', () => {
+            nodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
 
             nodeSelection
                 .selectAll<SVGTextElement, LocalDSINode>('text')
                 .attr('text-anchor', d =>
-                    !d.parent ? 'middle' : d.x! < 0 ? 'end' : 'start'
+                    getEntityId(d.data) === this.selectedNode?.id
+                        ? 'middle'
+                        : d.x! < 0
+                        ? 'end'
+                        : 'start'
                 );
 
             linkSelection

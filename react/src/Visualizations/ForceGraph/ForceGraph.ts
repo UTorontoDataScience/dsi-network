@@ -27,10 +27,6 @@ import {
 import { DSINode, EntityType, ModelEntity } from '../../types';
 import { getEntityId, mapTree } from '../../util';
 
-// for debugging
-(window as any).d3Select = select;
-(window as any).d3SelectAll = selectAll;
-
 export type DSISimulation = Simulation<DSINode, SimulationLinkDatum<DSINode>>;
 
 type DSIForceLinks = ForceLink<DSINode, SimulationLinkDatum<DSINode>>;
@@ -476,11 +472,11 @@ export default class D3ForceGraph {
             .force(
                 'charge',
                 forceManyBody()
-                    .strength(-50)
-                    .distanceMax(w / 3)
+                    .strength(-40)
+                    .distanceMax(w / 3.1)
             )
             .force('links', forceLinks.distance(w / 40).strength(1))
-            .force('collision', forceCollide().radius(6))
+            .force('collision', forceCollide().radius(7))
             .force('center', forceCenter())
             .velocityDecay(0.1);
 

@@ -228,9 +228,9 @@ const ChartPage: React.FC = () => {
         (node: DSINode, resetZoom: () => void) => {
             if (
                 node.selected &&
-                detailSelection.map(d =>
-                    getEntityId(d.data).includes(getEntityId(node.data))
-                )
+                detailSelection
+                    .map(d => getEntityId(d.data))
+                    .includes(getEntityId(node.data))
             ) {
                 setLocalViewNode(node);
                 resetZoom();

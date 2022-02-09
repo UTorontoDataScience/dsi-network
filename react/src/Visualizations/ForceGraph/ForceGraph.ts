@@ -165,7 +165,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.force('charge', null).alphaTarget(0.01).restart();
+        simulation.alphaTarget(0.01).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -234,6 +234,7 @@ const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
     ['campus', 'division', 'institution'].includes(n.data.type);
 
 export default class D3ForceGraph {
+    private fillColor: string;
     private globalZoom: ZoomBehavior<SVGSVGElement, unknown>;
     private globalZoomHandler: ({
         transform,
@@ -246,7 +247,7 @@ export default class D3ForceGraph {
     ) => void;
     private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
     private simulation: DSISimulation;
-    private theme: Theme;
+    private strokeColor: string;
     tree: DSINode;
     private w: number;
     constructor(
@@ -259,7 +260,8 @@ export default class D3ForceGraph {
             zoomToNode: () => void
         ) => void
     ) {
-        this.theme = theme;
+        this.fillColor = theme.palette.background.default;
+        this.strokeColor = theme.palette.text.primary;
         this.tree = tree;
         this.w = 1000;
         this.h = 825;
@@ -315,7 +317,7 @@ export default class D3ForceGraph {
             .append('rect')
             .attr('width', 100)
             .attr('height', 17)
-            .attr('fill', theme.palette.background.default);
+            .attr('fill', this.fillColor);
 
         zoomIndicator
             .append('text')
@@ -341,7 +343,7 @@ export default class D3ForceGraph {
             )
             .attr('class', 'control legend-container')
             .append('rect')
-            .attr('fill', theme.palette.background.default)
+            .attr('fill', this.fillColor)
             .attr('width', '100')
             .attr('height', '130');
 
@@ -360,7 +362,7 @@ export default class D3ForceGraph {
                     const enterSelection = enter
                         .append('line')
                         .attr('class', 'chart')
-                        .attr('stroke', this.theme.palette.text.primary);
+                        .attr('stroke', this.strokeColor);
 
                     enterSelection
                         .transition()
@@ -401,7 +403,7 @@ export default class D3ForceGraph {
                     outerContainer
                         .filter(n => getShouldShowLabel(n, this.tree))
                         .append('text')
-                        .attr('fill', this.theme.palette.text.primary)
+                        .attr('fill', this.strokeColor)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
                         .attr('text-anchor', 'middle')
@@ -426,9 +428,7 @@ export default class D3ForceGraph {
                         )
                         .attr('fill', d => colorScale(d.data.type))
                         .attr('stroke', d => {
-                            return d.children
-                                ? this.theme.palette.text.primary
-                                : null;
+                            return d.children ? this.strokeColor : null;
                         });
 
                     enterNodeSelection
@@ -530,18 +530,17 @@ export default class D3ForceGraph {
             );
 
     toggleTheme = (theme: Theme) => {
-        this.theme = theme;
-        this.svg.selectAll('line').attr('stroke', theme.palette.text.primary);
-        this.svg.selectAll('circle').attr('stroke', function () {
-            return select(this).attr('stroke')
-                ? theme.palette.text.primary
-                : null;
-        });
-        this.svg.selectAll('text').attr('fill', theme.palette.text.primary);
+        const strokeColor = theme.palette.text.primary;
+        this.strokeColor = strokeColor;
+        this.fillColor = theme.palette.background.default;
 
-        this.svg
-            .selectAll('rect')
-            .attr('fill', theme.palette.background.default);
+        this.svg.selectAll('line').attr('stroke', this.strokeColor);
+        this.svg.selectAll('circle').attr('stroke', function () {
+            return select(this).attr('stroke') ? strokeColor : null;
+        });
+        this.svg.selectAll('text').attr('fill', this.strokeColor);
+
+        this.svg.selectAll('rect').attr('fill', this.fillColor);
     };
 
     update = (_tree: DSINode) => {

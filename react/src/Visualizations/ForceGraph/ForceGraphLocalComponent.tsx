@@ -5,7 +5,8 @@ import { getEntityId, makeTree, mapTree } from '../../util';
 import LocalGraph from './ForceGraphLocal';
 
 export interface LocalDSINode extends DSINode {
-    hasChildren: boolean;
+    hasChildren?: boolean;
+    hasParent?: boolean;
 }
 
 interface ForceGraphLocalProps {

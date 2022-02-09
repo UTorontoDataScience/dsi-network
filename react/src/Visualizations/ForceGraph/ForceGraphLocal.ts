@@ -34,20 +34,20 @@ const lineExitTransition = <T>(
         .remove();
 
 export default class D3ForceGraphLocal {
-    h: number;
-    resetViewNode: (node: LocalDSINode) => void;
+    private strokeColor: string;
+    private h: number;
+    private resetViewNode: (node: LocalDSINode) => void;
     selectedNode: LocalDSINode | null = null;
-    simulation: DSISimulation;
-    svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
-    theme: Theme;
-    w: number;
+    private simulation: DSISimulation;
+    private svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
+    private w: number;
     constructor(
         selector: string,
         theme: Theme,
         resetViewNode: (node: LocalDSINode) => void
     ) {
         this.resetViewNode = resetViewNode;
-        this.theme = theme;
+        this.strokeColor = theme.palette.text.primary;
         this.w = 1000;
         this.h = 1000;
         this.svg = select(`#${selector}`)
@@ -76,25 +76,23 @@ export default class D3ForceGraphLocal {
                     enterNodeSelection
                         .append('circle')
                         .attr('opacity', 0)
-                        .attr('r', () => nodeR)
+                        .attr('r', nodeR)
                         .attr('fill', d => colorScale(d.data.type))
                         .attr('stroke', d =>
-                            d.hasChildren
-                                ? this.theme.palette.text.primary
-                                : null
+                            d.hasChildren ? this.strokeColor : null
                         )
-                        .transition('main')
+                        .transition()
                         .duration(500)
                         .attr('opacity', 1);
 
                     enterNodeSelection
                         .append('text')
-                        .attr('fill', this.theme.palette.text.primary)
+                        .attr('fill', this.strokeColor)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
                         .attr('text-anchor', 'middle')
                         .style('user-select', 'none')
-                        .transition('text')
+                        .transition()
                         .duration(500)
                         .style('opacity', 0.75);
 
@@ -121,6 +119,10 @@ export default class D3ForceGraphLocal {
             this.selectedNode!.copy().data
         ) as LocalDSINode;
 
+        if (this.selectedNode?.parent) {
+            node.hasParent = true;
+        }
+
         if (this.selectedNode?.children) {
             node.hasChildren = true;
         }
@@ -144,9 +146,7 @@ export default class D3ForceGraphLocal {
                         .attr('r', () => 50)
                         .attr('fill', d => colorScale(d.data.type))
                         .attr('stroke', d =>
-                            d.hasChildren
-                                ? this.theme.palette.text.primary
-                                : null
+                            d.hasChildren ? this.strokeColor : null
                         )
                         /* typing here is unclear */
                         .transition(t as any)
@@ -155,7 +155,7 @@ export default class D3ForceGraphLocal {
 
                     enterSelection
                         .append('text')
-                        .attr('fill', this.theme.palette.text.primary)
+                        .attr('fill', this.strokeColor)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
                         .attr('text-anchor', 'middle')
@@ -164,6 +164,16 @@ export default class D3ForceGraphLocal {
                         .duration(500)
                         .ease(easeQuadIn)
                         .style('opacity', 0.75);
+
+                    enterSelection
+                        .append('g')
+                        .attr('class', 'go-back')
+                        .append('polyline')
+                        .attr('points', '-10,20 0,10, 10,20')
+                        .attr('stroke', this.strokeColor)
+                        .attr('fill', 'none')
+                        .style('opacity', d => (d.hasParent ? 0.75 : 0))
+                        .style('stroke-width', 2);
 
                     return enterSelection;
                 },
@@ -180,6 +190,15 @@ export default class D3ForceGraphLocal {
                         .duration(500)
                         .attr('transform', 'translate(0,0)');
 
+                    update
+                        .append('g')
+                        .attr('class', 'go-back')
+                        .append('polyline')
+                        .attr('points', '-10,20 0,10, 10,20')
+                        .attr('stroke', this.strokeColor)
+                        .attr('fill', 'none')
+                        .style('opacity', d => (d.hasParent ? 0.75 : 0))
+                        .style('stroke-width', 2);
                     return update;
                 },
                 exit => exit.remove()
@@ -228,7 +247,7 @@ export default class D3ForceGraphLocal {
                     const enterSelection = enter
                         .append('line')
                         .attr('class', 'edge')
-                        .attr('stroke', this.theme.palette.text.primary);
+                        .attr('stroke', this.strokeColor);
 
                     enterSelection
                         .transition()

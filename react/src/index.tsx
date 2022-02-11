@@ -46,7 +46,7 @@ const App: React.FC = () => {
                                                 }
                                                 setDarkMode(!darkMode);
                                             }}
-                                            value={darkMode}
+                                            checked={darkMode}
                                         />
                                     }
                                     label={

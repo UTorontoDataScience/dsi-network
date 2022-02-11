@@ -464,7 +464,7 @@ export default class D3ForceGraph {
             .call(registerOnHover, getNodeSizeScale(nodes.length))
             .call(this.registerNodeClickBehavior, this.svg);
 
-        //ensure labeled groups are in "back" to prevent text from capturing mouse events intended for nodes
+        //ensure labeled groups are in "back" to prevent label text from capturing mouse events intended for nodes
         return nodeSelection.sort(a =>
             getShouldShowLabel(a, this.tree) ? -1 : 1
         );

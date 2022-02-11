@@ -72,9 +72,6 @@ export default class D3ForceGraphLocal {
             .attr('stroke', this.strokeColor);
 
     appendNodes = (tree: LocalDSINode, nodeR: number) => {
-        //todo: is this the best place of this?
-        this.setSelected(tree.descendants().map(d => d.data));
-
         return this.circleContainer
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
             .data(
@@ -112,7 +109,14 @@ export default class D3ForceGraphLocal {
                         .attr('fill', this.strokeColor)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
-                        .attr('text-anchor', 'middle')
+                        .attr('text-anchor', d =>
+                            getEntityId(d.data) ===
+                            getEntityId(this.selectedNode!.data)
+                                ? 'middle'
+                                : d.x! < 0
+                                ? 'end'
+                                : 'start'
+                        )
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)
@@ -120,7 +124,19 @@ export default class D3ForceGraphLocal {
 
                     return enterNodeSelection;
                 },
-                update => update,
+                update => {
+                    update
+                        .selectAll<SVGTextElement, LocalDSINode>('text')
+                        .attr('text-anchor', d =>
+                            getEntityId(d.data) ===
+                            getEntityId(this.selectedNode!.data)
+                                ? 'middle'
+                                : d.x! < 0
+                                ? 'end'
+                                : 'start'
+                        );
+                    return update;
+                },
                 exit => {
                     exit.remove();
                 }
@@ -263,6 +279,7 @@ export default class D3ForceGraphLocal {
 
     render = (tree: LocalDSINode, selectedNodeId: string) => {
         this.selectedNode = tree.find(n => selectedNodeId === n.id)!;
+        this.setSelected(tree.descendants().map(d => d.data));
         this.buildChart(tree);
     };
 }

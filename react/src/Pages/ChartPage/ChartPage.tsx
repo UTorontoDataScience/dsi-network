@@ -36,7 +36,7 @@ import {
     ModelEntity,
 } from '../../types';
 import { CloseIcon } from '../../Icons';
-import { LocalDSINode } from '../../Visualizations/ForceGraph/ForceGraphLocalComponent';
+import { LocalDSINode } from '../../Visualizations/Neighborhood/NeighborhoodComponent';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);

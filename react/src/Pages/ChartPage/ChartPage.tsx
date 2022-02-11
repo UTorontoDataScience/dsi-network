@@ -23,7 +23,7 @@ import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import {
     ForceGraph,
-    ForceGraphLocal,
+    Neighborhood,
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
@@ -507,7 +507,7 @@ const LocalView: React.FC<LocalViewProps> = ({
                 >
                     <CloseIcon />
                 </IconButton>
-                <ForceGraphLocal
+                <Neighborhood
                     resetViewNode={resetViewNode}
                     selectedNodeId={nodeId}
                     setSelected={setSelected}

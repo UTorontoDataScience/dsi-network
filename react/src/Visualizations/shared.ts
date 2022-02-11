@@ -2,7 +2,7 @@ import { capitalize } from '@mui/material';
 import { scaleOrdinal } from 'd3-scale';
 import { schemeCategory10 } from 'd3-scale-chromatic';
 import { BaseType, Selection } from 'd3-selection';
-import { EntityType } from '../../types';
+import { EntityType } from '../types';
 
 const entityTypes: EntityType[] = [
     'campus',

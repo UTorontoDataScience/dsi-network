@@ -25,7 +25,7 @@ import {
 } from 'd3-force';
 import { DSINode, ModelEntity } from '../../types';
 import { getEntityId, mapTree } from '../../util';
-import { colorScale, drawLegend } from './shared';
+import { colorScale, drawLegend } from '../shared';
 
 export type DSISimulation = Simulation<DSINode, SimulationLinkDatum<DSINode>>;
 

@@ -11,18 +11,16 @@ export interface SelectedModel {
 }
 interface ForceGraphProps {
     containerWidth: number;
+    onBackgroundClick: () => void;
+    onNodeClick: (node: DSINode, resetZoom: () => void) => void;
     tree: HierarchyNode<ModelEntity>;
-    onNodeClick: (
-        node: DSINode,
-        resetZoom: () => void,
-        zoomToNode: () => void
-    ) => void;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     containerWidth,
-    tree,
+    onBackgroundClick,
     onNodeClick,
+    tree,
 }) => {
     const [Graph, setGraph] = useState<D3ForceGraph>();
 
@@ -33,11 +31,17 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     /* initialize */
     useEffect(() => {
         if (tree && !Graph && containerWidth) {
-            const Graph = new D3ForceGraph(targetId, theme, tree, onNodeClick);
+            const Graph = new D3ForceGraph(
+                targetId,
+                theme,
+                tree,
+                onBackgroundClick,
+                onNodeClick
+            );
             Graph.render();
             setGraph(Graph);
         }
-    }, [Graph, containerWidth, tree, onNodeClick, theme]);
+    }, [containerWidth, Graph, onBackgroundClick, onNodeClick, tree, theme]);
 
     /* toggle dark mode */
     useEffect(() => {

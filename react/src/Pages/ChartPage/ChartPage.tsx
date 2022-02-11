@@ -223,29 +223,13 @@ const ChartPage: React.FC = () => {
     }, [model]);
 
     const handleNodeClick = useCallback(
-        (node: DSINode, resetZoom: () => void, zoomToNode: () => void) => {
-            if (
-                node.selected &&
-                detailSelection
-                    .map(d => getEntityId(d.data))
-                    .includes(getEntityId(node.data))
-            ) {
-                setLocalViewNode(node);
-                resetZoom();
-            } else {
-                setDetailSelection(
-                    tree0!
-                        .descendants()
-                        .filter(m => m.data.name === node.data.name)
-                );
-                if (!node.selected) {
-                    setSelected([node.data]);
-                }
-                zoomToNode();
-            }
-            setNameSearchInputString(node.data.name);
+        (node: DSINode, resetZoom: () => void) => {
+            setLocalViewNode(node);
+            resetKeywordInputs();
+            resetNameSearchInputs();
+            resetZoom();
         },
-        [detailSelection, tree0]
+        []
     );
 
     const handleKeywordSearchSelect = (value?: string) => {
@@ -333,6 +317,7 @@ const ChartPage: React.FC = () => {
                             <ForceGraph
                                 containerWidth={containerWidth}
                                 onNodeClick={handleNodeClick}
+                                onBackgroundClick={() => setSelected([])}
                                 tree={tree}
                             />
                         )}

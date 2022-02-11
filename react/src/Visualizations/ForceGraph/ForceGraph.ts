@@ -204,11 +204,8 @@ export default class D3ForceGraph {
         transform,
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
     private h: number;
-    public onNodeClick: (
-        node: DSINode,
-        resetZoom: () => void,
-        zoomToNode: () => void
-    ) => void;
+    private onBackgroundClick: () => void;
+    public onNodeClick: (node: DSINode, resetZoom: () => void) => void;
     private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
     private simulation: DSISimulation;
     private strokeColor: string;
@@ -218,11 +215,8 @@ export default class D3ForceGraph {
         selector: string,
         theme: Theme,
         tree: DSINode,
-        onNodeClick: (
-            node: DSINode,
-            resetZoom: () => void,
-            zoomToNode: () => void
-        ) => void
+        onBackgroundClick: () => void,
+        onNodeClick: (node: DSINode, resetZoom: () => void) => void
     ) {
         this.fillColor = theme.palette.background.default;
         this.strokeColor = theme.palette.text.primary;
@@ -235,6 +229,7 @@ export default class D3ForceGraph {
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h])
             .style('border', `solid thin ${theme.palette.text.secondary}`);
         this.onNodeClick = onNodeClick;
+        this.onBackgroundClick = onBackgroundClick;
 
         this.simulation = forceSimulation();
 
@@ -297,6 +292,7 @@ export default class D3ForceGraph {
             if (currentZoom > 1) {
                 that.resetZoom();
             }
+            that.onBackgroundClick();
         });
 
         drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
@@ -443,11 +439,7 @@ export default class D3ForceGraph {
     private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
-            this.onNodeClick(
-                node,
-                this.resetZoom.bind(this),
-                this.zoomToNode.bind(this, node)
-            );
+            this.onNodeClick(node, this.resetZoom.bind(this));
         });
 
     remove = () => this.svg.selectAll('.container').selectAll('*').remove();

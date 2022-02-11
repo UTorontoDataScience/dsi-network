@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, useTheme } from '@mui/material';
-import { DSINode } from '../../types';
+import { DSINode, ModelEntity } from '../../types';
 import { getEntityId, makeTree, mapTree } from '../../util';
 import LocalGraph from './ForceGraphLocal';
 
@@ -10,14 +10,16 @@ export interface LocalDSINode extends DSINode {
 }
 
 interface ForceGraphLocalProps {
-    tree: DSINode;
-    selectedNodeId: string;
     resetViewNode: (node: LocalDSINode) => void;
+    selectedNodeId: string;
+    setSelected: (models: ModelEntity[]) => void;
+    tree: DSINode;
 }
 
 const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
     resetViewNode,
     selectedNodeId,
+    setSelected,
     tree,
 }) => {
     const [Graph, setGraph] = useState<LocalGraph>();
@@ -62,7 +64,12 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
     /* initialize/update */
     useEffect(() => {
         if (neighborhood && !Graph) {
-            const _graph = new LocalGraph(targetId, theme, resetViewNode);
+            const _graph = new LocalGraph(
+                resetViewNode,
+                targetId,
+                setSelected,
+                theme
+            );
             _graph.render(neighborhood, selectedNodeId);
             setGraph(_graph);
         } else if (
@@ -72,7 +79,14 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
         ) {
             Graph.render(neighborhood, selectedNodeId);
         }
-    }, [Graph, resetViewNode, neighborhood, selectedNodeId, theme]);
+    }, [
+        Graph,
+        resetViewNode,
+        neighborhood,
+        selectedNodeId,
+        setSelected,
+        theme,
+    ]);
 
     return (
         <Box

@@ -27,7 +27,6 @@ import {
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
-import { SelectedModel } from '../../Visualizations/ForceGraph/ForceGraphComponent';
 import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
 import {
     DSINode,
@@ -41,17 +40,17 @@ import { LocalDSINode } from '../../Visualizations/ForceGraph/ForceGraphLocalCom
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
+    const [containerWidth, setContainerWidth] = useState<number>();
     const [detailSelection, setDetailSelection] = useState<
         HierarchyNode<ModelEntity>[]
     >([]);
+    const [keywordInputString, setKeywordInputString] = useState('');
     const [localViewNode, setLocalViewNode] = useState<DSINode>();
     const [model, setModel] = useState<ModelEntity[]>();
-    const [root, setRoot] = useState<ModelEntity>();
-    const [selected, setSelected] = useState<SelectedModel[]>([]);
-    const [containerWidth, setContainerWidth] = useState<number>();
-    const [keywordInputString, setKeywordInputString] = useState('');
-    const [selectedKeyword, setSelectedKeyword] = useState('');
     const [nameSearchInputString, setNameSearchInputString] = useState('');
+    const [root, setRoot] = useState<ModelEntity>();
+    const [selected, setSelected] = useState<ModelEntity[]>([]);
+    const [selectedKeyword, setSelectedKeyword] = useState('');
 
     const chartContainerRef = useCallback((node: HTMLDivElement) => {
         if (node) {
@@ -181,14 +180,13 @@ const ChartPage: React.FC = () => {
         }
     }, [tree0]);
 
-    const SelectableByKeyword = useMemo(() => {
+    const selectableByKeyword = useMemo(() => {
         return tree0
             ? tree0
                   .descendants()
                   .map(m => ({
                       keywords: getKeywords(m.data),
-                      type: m.data.type,
-                      id: m.data.id,
+                      model: m,
                   }))
                   .filter(m => !!m.keywords)
             : [];
@@ -241,7 +239,7 @@ const ChartPage: React.FC = () => {
                         .filter(m => m.data.name === node.data.name)
                 );
                 if (!node.selected) {
-                    setSelected([{ type: node.data.type, id: node.data.id }]);
+                    setSelected([node.data]);
                 }
                 zoomToNode();
             }
@@ -254,12 +252,11 @@ const ChartPage: React.FC = () => {
         setSelectedKeyword(value || '');
         if (value) {
             setSelected(
-                SelectableByKeyword.filter(p =>
-                    p.keywords.toLowerCase().includes(value.toLowerCase())
-                ).map(p => ({
-                    type: p.type,
-                    id: p.id,
-                }))
+                selectableByKeyword
+                    .filter(p =>
+                        p.keywords.toLowerCase().includes(value.toLowerCase())
+                    )
+                    .map(p => p.model.data)
             );
         }
     };
@@ -432,10 +429,9 @@ const ChartPage: React.FC = () => {
                 <LocalView
                     tree={tree0}
                     nodeId={getEntityId(localViewNode.data)}
-                    onClose={() => {
-                        setLocalViewNode(undefined);
-                    }}
-                    resetViewNode={n => setLocalViewNode(n)}
+                    onClose={() => setLocalViewNode(undefined)}
+                    resetViewNode={setLocalViewNode}
+                    setSelected={setSelected}
                 />
             )}
         </Grid>
@@ -493,6 +489,7 @@ interface LocalViewProps {
     nodeId: string;
     resetViewNode: (node: LocalDSINode) => void;
     onClose: () => void;
+    setSelected: (models: ModelEntity[]) => void;
     tree: DSINode;
 }
 
@@ -500,6 +497,7 @@ const LocalView: React.FC<LocalViewProps> = ({
     nodeId,
     onClose,
     resetViewNode,
+    setSelected,
     tree,
 }) => (
     <Fade timeout={500} in={true}>
@@ -527,6 +525,7 @@ const LocalView: React.FC<LocalViewProps> = ({
                 <ForceGraphLocal
                     resetViewNode={resetViewNode}
                     selectedNodeId={nodeId}
+                    setSelected={setSelected}
                     tree={tree.copy()}
                 />
             </Paper>

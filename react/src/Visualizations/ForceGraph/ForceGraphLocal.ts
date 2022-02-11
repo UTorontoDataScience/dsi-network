@@ -8,6 +8,7 @@ import {
 } from 'd3-force';
 import { BaseType, select, Selection } from 'd3-selection';
 import { transition } from 'd3-transition';
+import { ModelEntity } from '../../types';
 import { getEntityId, makeTree } from '../../util';
 import { buildForceLinks, DSISimulation, makeLinkKey } from './ForceGraph';
 import { LocalDSINode } from './ForceGraphLocalComponent';
@@ -34,16 +35,19 @@ export default class D3ForceGraphLocal {
     private h: number;
     private resetViewNode: (node: LocalDSINode) => void;
     selectedNode: LocalDSINode | null = null;
+    private setSelected: (models: ModelEntity[]) => void;
     private simulation: DSISimulation;
     private strokeColor: string;
     private svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
     private w: number;
     constructor(
+        resetViewNode: (node: LocalDSINode) => void,
         selector: string,
-        theme: Theme,
-        resetViewNode: (node: LocalDSINode) => void
+        setSelected: (models: ModelEntity[]) => void,
+        theme: Theme
     ) {
         this.resetViewNode = resetViewNode;
+        this.setSelected = setSelected;
         this.strokeColor = theme.palette.text.primary;
         this.fillColor = theme.palette.background.paper;
         this.w = 1500;
@@ -61,9 +65,14 @@ export default class D3ForceGraphLocal {
     }
 
     appendNodes = (tree: LocalDSINode, nodeR: number) => {
+        this.setSelected(tree.descendants().map(d => d.data));
+
         return this.svg
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
-            .data(tree.descendants(), (d, i) => (d ? getEntityId(d.data) : i))
+            .data(
+                tree.descendants().sort((a, b) => (a.type > b.type ? -1 : 1)),
+                (d, i) => (d ? getEntityId(d.data) : i)
+            )
             .join(
                 enter => {
                     const enterNodeSelection = enter

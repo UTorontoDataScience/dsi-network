@@ -23,7 +23,7 @@ import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import {
     ForceGraph,
-    ForceGraphLocal,
+    Neighborhood,
     PackChart,
     ScrollableBarChart,
 } from '../../Visualizations';
@@ -36,7 +36,7 @@ import {
     ModelEntity,
 } from '../../types';
 import { CloseIcon } from '../../Icons';
-import { LocalDSINode } from '../../Visualizations/ForceGraph/ForceGraphLocalComponent';
+import { LocalDSINode } from '../../Visualizations/Neighborhood/NeighborhoodComponent';
 
 const ChartPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -507,7 +507,7 @@ const LocalView: React.FC<LocalViewProps> = ({
                 >
                     <CloseIcon />
                 </IconButton>
-                <ForceGraphLocal
+                <Neighborhood
                     resetViewNode={resetViewNode}
                     selectedNodeId={nodeId}
                     setSelected={setSelected}

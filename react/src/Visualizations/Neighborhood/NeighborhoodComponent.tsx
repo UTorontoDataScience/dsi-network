@@ -2,27 +2,27 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { DSINode, ModelEntity } from '../../types';
 import { getEntityId, makeTree, mapTree } from '../../util';
-import LocalGraph from './ForceGraphLocal';
+import Neighborhood from './Neighborhood';
 
 export interface LocalDSINode extends DSINode {
     hasChildren?: boolean;
     hasParent?: boolean;
 }
 
-interface ForceGraphLocalProps {
+interface NeighborhoodProps {
     resetViewNode: (node: LocalDSINode) => void;
     selectedNodeId: string;
     setSelected: (models: ModelEntity[]) => void;
     tree: DSINode;
 }
 
-const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
+const NeighborhoodComponent: React.FC<NeighborhoodProps> = ({
     resetViewNode,
     selectedNodeId,
     setSelected,
     tree,
 }) => {
-    const [Graph, setGraph] = useState<LocalGraph>();
+    const [Chart, setChart] = useState<Neighborhood>();
 
     const theme = useTheme();
 
@@ -63,24 +63,24 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
 
     /* initialize/update */
     useEffect(() => {
-        if (neighborhood && !Graph) {
-            const _graph = new LocalGraph(
+        if (neighborhood && !Chart) {
+            const _graph = new Neighborhood(
                 resetViewNode,
                 targetId,
                 setSelected,
                 theme
             );
             _graph.render(neighborhood, selectedNodeId);
-            setGraph(_graph);
+            setChart(_graph);
         } else if (
             neighborhood &&
-            Graph &&
-            selectedNodeId != Graph.selectedNode?.id
+            Chart &&
+            selectedNodeId != getEntityId(Chart.selectedNode!.data!)
         ) {
-            Graph.render(neighborhood, selectedNodeId);
+            Chart.render(neighborhood, selectedNodeId);
         }
     }, [
-        Graph,
+        Chart,
         resetViewNode,
         neighborhood,
         selectedNodeId,
@@ -99,4 +99,4 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
     );
 };
 
-export default ForceGraphForceGraphLocalComponent;
+export default NeighborhoodComponent;

@@ -1,42 +1,30 @@
 import { Theme } from '@mui/material';
-import { easeCubicIn, easeLinear, easeQuadIn } from 'd3-ease';
-import {
-    forceCenter,
-    forceManyBody,
-    forceSimulation,
-    SimulationLinkDatum,
-} from 'd3-force';
-import { BaseType, select, Selection } from 'd3-selection';
+import { easeLinear, easeQuadIn } from 'd3-ease';
+import { select, Selection } from 'd3-selection';
 import { transition } from 'd3-transition';
 import { ModelEntity } from '../../types';
 import { getEntityId, makeTree } from '../../util';
-import { buildForceLinks, DSISimulation, makeLinkKey } from './ForceGraph';
-import { LocalDSINode } from './ForceGraphLocalComponent';
-import { colorScale, drawLegend } from './shared';
-
-const lineExitTransition = <T>(
-    selection: Selection<SVGLineElement, T, any, any>
-) =>
-    selection
-        .transition()
-        .duration(250)
-        .ease(easeCubicIn)
-        .attr('opacity', 0)
-        .attr('x2', function () {
-            return select(this).attr('x1');
-        })
-        .attr('y2', function () {
-            return select(this).attr('y1');
-        })
-        .remove();
+import { colorScale, drawLegend } from '../shared';
+import { LocalDSINode } from './NeighborhoodComponent';
 
 export default class D3ForceGraphLocal {
+    private circleContainer: Selection<
+        SVGGElement,
+        unknown,
+        HTMLElement,
+        unknown
+    >;
     private fillColor: string;
     private h: number;
+    private lineContainer: Selection<
+        SVGGElement,
+        unknown,
+        HTMLElement,
+        unknown
+    >;
     private resetViewNode: (node: LocalDSINode) => void;
     selectedNode: LocalDSINode | null = null;
     private setSelected: (models: ModelEntity[]) => void;
-    private simulation: DSISimulation;
     private strokeColor: string;
     private svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
     private w: number;
@@ -59,15 +47,32 @@ export default class D3ForceGraphLocal {
             .append('g')
             .attr('class', 'chart-container');
 
-        drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
+        this.lineContainer = this.svg
+            .append('g')
+            .attr('class', 'line-container');
 
-        this.simulation = forceSimulation();
+        this.circleContainer = this.svg
+            .append('g')
+            .attr('class', 'circle-container');
+
+        drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
     }
 
-    appendNodes = (tree: LocalDSINode, nodeR: number) => {
-        this.setSelected(tree.descendants().map(d => d.data));
+    appendLines = (tree: LocalDSINode) =>
+        this.lineContainer
+            .selectAll<SVGGElement, LocalDSINode>('g.line')
+            .data(tree.descendants(), Math.random)
+            .join('g')
+            .attr('class', 'line')
+            .append('line')
+            .attr('x1', 0)
+            .attr('x2', 0)
+            .attr('y1', 0)
+            .attr('y2', 0)
+            .attr('stroke', this.strokeColor);
 
-        return this.svg
+    appendNodes = (tree: LocalDSINode, nodeR: number) => {
+        return this.circleContainer
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
             .data(
                 tree.descendants().sort((a, b) => (a.type > b.type ? -1 : 1)),
@@ -81,6 +86,11 @@ export default class D3ForceGraphLocal {
                         .style('cursor', d =>
                             d.hasChildren ? 'pointer' : null
                         );
+
+                    enterNodeSelection
+                        .transition()
+                        .duration(500)
+                        .attr('transform', d => `translate(${d.x}, ${d.y})`);
 
                     enterNodeSelection
                         .append('circle')
@@ -99,7 +109,14 @@ export default class D3ForceGraphLocal {
                         .attr('fill', this.strokeColor)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
-                        .attr('text-anchor', 'middle')
+                        .attr('text-anchor', d =>
+                            getEntityId(d.data) ===
+                            getEntityId(this.selectedNode!.data)
+                                ? 'middle'
+                                : d.x! < 0
+                                ? 'end'
+                                : 'start'
+                        )
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)
@@ -107,7 +124,19 @@ export default class D3ForceGraphLocal {
 
                     return enterNodeSelection;
                 },
-                update => update,
+                update => {
+                    update
+                        .selectAll<SVGTextElement, LocalDSINode>('text')
+                        .attr('text-anchor', d =>
+                            getEntityId(d.data) ===
+                            getEntityId(this.selectedNode!.data)
+                                ? 'middle'
+                                : d.x! < 0
+                                ? 'end'
+                                : 'start'
+                        );
+                    return update;
+                },
                 exit => {
                     exit.remove();
                 }
@@ -122,7 +151,6 @@ export default class D3ForceGraphLocal {
     };
 
     appendSelectedNode = () => {
-        /* strip selected node of parents/children b/c d3 will internally transform object into array of descendants via iterator */
         const node = makeTree(
             [this.selectedNode!.copy().data],
             this.selectedNode!.copy().data
@@ -138,7 +166,7 @@ export default class D3ForceGraphLocal {
 
         const t = transition().duration(500).ease(easeLinear).end();
 
-        this.svg
+        this.circleContainer
             .selectAll<SVGGElement, LocalDSINode>('g.circle-node')
             .data(node, d => getEntityId(d.data))
             .join(
@@ -159,7 +187,6 @@ export default class D3ForceGraphLocal {
                         )
                         /* typing here is unclear */
                         .transition(t as any)
-                        .duration(500)
                         .attr('opacity', 1);
 
                     enterSelection
@@ -213,113 +240,46 @@ export default class D3ForceGraphLocal {
                 exit => exit.remove()
             );
 
-        this.svg
-            .selectAll<SVGLineElement, any>('line')
-            .data([])
-            .join(
-                enter => enter,
-                update => update,
-                exit => exit.call(lineExitTransition)
-            );
-
         return t;
     };
 
     buildChart = async (tree: LocalDSINode) => {
-        //stop sim to prevent tick callback from firing on exited nodes
-        this.simulation.stop();
+        const arcLength = 360 / Math.max(tree.descendants().length - 1, 2);
+        const treeWithCoordinates = this.calculateLayout(tree, arcLength);
+        const lines = this.appendLines(treeWithCoordinates);
         await this.appendSelectedNode();
-        this.appendAllNodesAndLinks(tree);
-        this.simulation.alpha(1);
-        this.simulation.restart();
+        lines
+            .transition()
+            .duration(500)
+            .attr('x2', d => d.x!)
+            .attr('y2', d => d.y!);
+
+        this.appendNodes(treeWithCoordinates, Math.min(arcLength * 2, 50));
     };
 
-    appendAllNodesAndLinks = (tree: LocalDSINode) => {
-        const forceLinks = buildForceLinks(tree.links());
+    calculateLayout = (tree: LocalDSINode, arcLength: number) => {
+        const radius = this.h / 2.5;
 
-        const maxDistance = this.h / 2.5;
-
-        const circumference = 2 * (Math.PI * maxDistance);
-
-        const nodeR = Math.min(
-            circumference / tree.descendants().length / 4,
-            50
-        );
-
-        const linkSelection = this.svg
-            .selectAll<SVGLineElement, SimulationLinkDatum<LocalDSINode>>(
-                'line'
-            )
-            .data(forceLinks.links(), makeLinkKey)
-            .join(
-                enter => {
-                    const enterSelection = enter
-                        .append('line')
-                        .attr('class', 'edge')
-                        .attr('stroke', this.strokeColor);
-
-                    enterSelection
-                        .transition()
-                        .duration(1000)
-                        .attr('opacity', 1);
-                    return enterSelection;
-                },
-                update => update,
-                exit => exit.call(lineExitTransition)
-            );
-
-        const nodeSelection = this.appendNodes(tree, nodeR);
-
-        this.simulation
-            .nodes(tree.descendants())
-            .force('charge', forceManyBody().strength(-25))
-            .force(
-                'links',
-                forceLinks.distance(maxDistance - nodeR).strength(1)
-            )
-            //center force will override charge when leaf node selected
-            .force(
-                'center',
-                tree.descendants().length > 2 ? forceCenter() : null
-            )
-            .velocityDecay(0.1);
-
-        /* fix selected node to prevent wobblying as sim fires */
-        nodeSelection
-            .filter(n => getEntityId(n.data) === this.selectedNode?.id)
+        let c = 0;
+        return tree
+            .sort((a, b) => (a.data.type > b.data.type ? -1 : 1))
             .each(n => {
-                n.fx = 0;
-                n.fy = 0;
+                const t = 360 - arcLength * c;
+
+                if (getEntityId(n.data) === this?.selectedNode?.id) {
+                    n.x = 0;
+                    n.y = 0;
+                } else {
+                    n.y = -(radius * Math.cos(t * (Math.PI / 180)));
+                    n.x = radius * Math.sin(t * (Math.PI / 180));
+                    c++;
+                }
             });
-
-        /* ensure circles in front of lines; selection could be line or circle (or something else), but we're only checking for circles */
-        this.svg
-            .selectChildren<BaseType, LocalDSINode>()
-            .sort((a: LocalDSINode) => (a.data ? 1 : -1));
-
-        this.simulation.on('tick', () => {
-            nodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
-
-            nodeSelection
-                .selectAll<SVGTextElement, LocalDSINode>('text')
-                .attr('text-anchor', d =>
-                    getEntityId(d.data) === this.selectedNode?.id
-                        ? 'middle'
-                        : d.x! < 0
-                        ? 'end'
-                        : 'start'
-                );
-
-            linkSelection
-                .attr('x1', d => (d.source as LocalDSINode).x!)
-                .attr('y1', d => (d.source as LocalDSINode).y!)
-                .attr('x2', d => (d.target as LocalDSINode).x!)
-                .attr('y2', d => (d.target as LocalDSINode).y!);
-        });
     };
 
     render = (tree: LocalDSINode, selectedNodeId: string) => {
         this.selectedNode = tree.find(n => selectedNodeId === n.id)!;
+        this.setSelected(tree.descendants().map(d => d.data));
         this.buildChart(tree);
     };
 }

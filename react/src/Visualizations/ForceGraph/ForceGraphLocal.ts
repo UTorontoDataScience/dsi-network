@@ -9,13 +9,9 @@ import {
 import { BaseType, select, Selection } from 'd3-selection';
 import { transition } from 'd3-transition';
 import { getEntityId, makeTree } from '../../util';
-import {
-    buildForceLinks,
-    colorScale,
-    DSISimulation,
-    makeLinkKey,
-} from './ForceGraph';
+import { buildForceLinks, DSISimulation, makeLinkKey } from './ForceGraph';
 import { LocalDSINode } from './ForceGraphLocalComponent';
+import { colorScale, drawLegend } from './shared';
 
 const lineExitTransition = <T>(
     selection: Selection<SVGLineElement, T, any, any>
@@ -34,11 +30,12 @@ const lineExitTransition = <T>(
         .remove();
 
 export default class D3ForceGraphLocal {
-    private strokeColor: string;
+    private fillColor: string;
     private h: number;
     private resetViewNode: (node: LocalDSINode) => void;
     selectedNode: LocalDSINode | null = null;
     private simulation: DSISimulation;
+    private strokeColor: string;
     private svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
     private w: number;
     constructor(
@@ -48,7 +45,8 @@ export default class D3ForceGraphLocal {
     ) {
         this.resetViewNode = resetViewNode;
         this.strokeColor = theme.palette.text.primary;
-        this.w = 1000;
+        this.fillColor = theme.palette.background.paper;
+        this.w = 1500;
         this.h = 1000;
         this.svg = select(`#${selector}`)
             .append('svg')
@@ -56,6 +54,8 @@ export default class D3ForceGraphLocal {
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h])
             .append('g')
             .attr('class', 'chart-container');
+
+        drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
 
         this.simulation = forceSimulation();
     }
@@ -228,7 +228,7 @@ export default class D3ForceGraphLocal {
     appendAllNodesAndLinks = (tree: LocalDSINode) => {
         const forceLinks = buildForceLinks(tree.links());
 
-        const maxDistance = this.w / 4;
+        const maxDistance = this.h / 2.5;
 
         const circumference = 2 * (Math.PI * maxDistance);
 

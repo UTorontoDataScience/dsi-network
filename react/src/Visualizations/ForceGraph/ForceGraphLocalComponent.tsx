@@ -74,7 +74,15 @@ const ForceGraphForceGraphLocalComponent: React.FC<ForceGraphLocalProps> = ({
         }
     }, [Graph, resetViewNode, neighborhood, selectedNodeId, theme]);
 
-    return <Box id={targetId} display="flex" flexGrow={1} />;
+    return (
+        <Box
+            id={targetId}
+            display="flex"
+            justifyContent="center"
+            width="100%"
+            height="100%"
+        />
+    );
 };
 
 export default ForceGraphForceGraphLocalComponent;

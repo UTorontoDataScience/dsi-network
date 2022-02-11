@@ -504,7 +504,13 @@ const LocalView: React.FC<LocalViewProps> = ({
 }) => (
     <Fade timeout={500} in={true}>
         <Backdrop sx={{ zIndex: 20, opacity: 0.9 }} open={true}>
-            <Paper sx={{ flexGrow: 1, padding: 15 }}>
+            <Paper
+                sx={{
+                    height: '100%',
+                    width: '100%',
+                }}
+                elevation={0}
+            >
                 <IconButton
                     disableFocusRipple={true}
                     disableRipple={true}

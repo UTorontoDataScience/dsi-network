@@ -1,9 +1,8 @@
-import { capitalize, Theme } from '@mui/material';
-import { schemeCategory10 } from 'd3-scale-chromatic';
+import { Theme } from '@mui/material';
 import { D3DragEvent, drag } from 'd3-drag';
 import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink } from 'd3-hierarchy';
-import { ScaleLinear, scaleLinear, scaleOrdinal } from 'd3-scale';
+import { ScaleLinear, scaleLinear } from 'd3-scale';
 import { Selection, BaseType, select } from 'd3-selection';
 import {
     D3ZoomEvent,
@@ -24,30 +23,15 @@ import {
     SimulationLinkDatum,
     SimulationNodeDatum,
 } from 'd3-force';
-import { DSINode, EntityType, ModelEntity } from '../../types';
+import { DSINode, ModelEntity } from '../../types';
 import { getEntityId, mapTree } from '../../util';
+import { colorScale, drawLegend } from './shared';
 
 export type DSISimulation = Simulation<DSINode, SimulationLinkDatum<DSINode>>;
 
 type DSIForceLinks = ForceLink<DSINode, SimulationLinkDatum<DSINode>>;
 
 type DSINodeSelection = Selection<SVGGElement, DSINode, BaseType, unknown>;
-
-const entityTypes: EntityType[] = [
-    'campus',
-    'division',
-    'institution',
-    'person',
-    'program',
-    'resource',
-    'unit',
-];
-
-export const colorScale = scaleOrdinal(
-    // remove red, b/c it's close to highlight color
-    // remove gray, b/c it's close to dark font
-    schemeCategory10.filter((_, i) => ![3, 7].includes(i))
-).domain(entityTypes);
 
 const getNodeSizeScale = (maxNodes: number) =>
     scaleLinear().domain([0, maxNodes]).range([3.25, 12]);
@@ -195,26 +179,6 @@ const registerDragHandler = (
     return handler(selection);
 };
 
-const drawLegend = (selector: string, theme: Theme) => {
-    const container = select(selector).attr('fill', theme.palette.text.primary);
-
-    container
-        .selectAll('g.legend')
-        .data(colorScale.domain())
-        .join('g')
-        .attr('transform', (_, i) => `translate(8, ${(i + 1) * 15})`)
-        .attr('class', 'legend')
-        .append('circle')
-        .attr('r', 3)
-        .attr('fill', d => colorScale(d));
-
-    container
-        .selectAll<BaseType, string>('g.legend')
-        .append('text')
-        .text((d: string) => d && capitalize(d))
-        .attr('transform', `translate(8, 5)`);
-};
-
 const appendToolTip = () => {
     select('body')
         .append('div')
@@ -335,19 +299,7 @@ export default class D3ForceGraph {
             }
         });
 
-        this.svg
-            .append('g')
-            .attr(
-                'transform',
-                `translate(${this.w / 2 - 100}, ${this.h / 2 - 130})`
-            )
-            .attr('class', 'control legend-container')
-            .append('rect')
-            .attr('fill', this.fillColor)
-            .attr('width', '100')
-            .attr('height', '130');
-
-        drawLegend('.legend-container', theme);
+        drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
 
         appendToolTip();
     }

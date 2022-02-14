@@ -113,13 +113,16 @@ export default class D3ForceGraphLocal {
                     enterNodeSelection
                         .append('text')
                         .attr('fill', this.strokeColor)
+                        .attr('stroke', d => colorScale(d.data.type))
+                        .attr('stroke-width', 0.5)
+                        .attr('font-size', 20)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
                         .call(this.offsetLabels)
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)
-                        .style('opacity', 0.75);
+                        .style('opacity', 1);
 
                     return enterNodeSelection;
                 },
@@ -134,8 +137,10 @@ export default class D3ForceGraphLocal {
                 }
             )
             .on('click', (_, d) => {
+                // set clicked node as selected node if possible
                 if (d.id !== this.selectedNode?.id && d.hasChildren) {
                     this.resetViewNode(d);
+                    // make parent selected node
                 } else if (d.id === this.selectedNode?.id && d.parent) {
                     this.resetViewNode(d.parent);
                 }
@@ -212,6 +217,7 @@ export default class D3ForceGraphLocal {
                 },
 
                 update => {
+                    /* the only node in the update selection will be the new selection (if selected node was designated by user action) */
                     update
                         .selectAll('circle')
                         .transition()

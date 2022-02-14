@@ -49,7 +49,8 @@ export default class D3ForceGraphLocal {
 
         this.lineContainer = this.svg
             .append('g')
-            .attr('class', 'line-container');
+            .attr('class', 'line-container')
+            .attr('stroke-width', 2);
 
         this.circleContainer = this.svg
             .append('g')
@@ -69,7 +70,12 @@ export default class D3ForceGraphLocal {
             .attr('x2', 0)
             .attr('y1', 0)
             .attr('y2', 0)
-            .attr('stroke', this.strokeColor);
+            .attr('stroke', d => {
+                const isParent = d.id === this?.selectedNode?.parent?.id;
+                return isParent
+                    ? colorScale(this.selectedNode!.parent!.data.type)
+                    : this.strokeColor;
+            });
 
     appendNodes = (tree: LocalDSINode, nodeR: number) => {
         return this.circleContainer
@@ -109,14 +115,7 @@ export default class D3ForceGraphLocal {
                         .attr('fill', this.strokeColor)
                         .attr('opacity', 0)
                         .text(d => d.data.name)
-                        .attr('text-anchor', d =>
-                            getEntityId(d.data) ===
-                            getEntityId(this.selectedNode!.data)
-                                ? 'middle'
-                                : d.x! < 0
-                                ? 'end'
-                                : 'start'
-                        )
+                        .call(this.offsetLabels)
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)
@@ -127,14 +126,7 @@ export default class D3ForceGraphLocal {
                 update => {
                     update
                         .selectAll<SVGTextElement, LocalDSINode>('text')
-                        .attr('text-anchor', d =>
-                            getEntityId(d.data) ===
-                            getEntityId(this.selectedNode!.data)
-                                ? 'middle'
-                                : d.x! < 0
-                                ? 'end'
-                                : 'start'
-                        );
+                        .call(this.offsetLabels);
                     return update;
                 },
                 exit => {
@@ -149,6 +141,19 @@ export default class D3ForceGraphLocal {
                 }
             });
     };
+
+    appendBackIcon = (
+        selection: Selection<SVGGElement, LocalDSINode, any, any>
+    ) =>
+        selection
+            .append('g')
+            .attr('class', 'go-back')
+            .append('polyline')
+            .attr('points', '-10,20 0,10, 10,20')
+            .attr('stroke', this.strokeColor)
+            .attr('fill', 'none')
+            .style('opacity', d => (d.hasParent ? 0.75 : 0))
+            .style('stroke-width', 2);
 
     appendSelectedNode = () => {
         const node = makeTree(
@@ -201,15 +206,7 @@ export default class D3ForceGraphLocal {
                         .ease(easeQuadIn)
                         .style('opacity', 0.75);
 
-                    enterSelection
-                        .append('g')
-                        .attr('class', 'go-back')
-                        .append('polyline')
-                        .attr('points', '-10,20 0,10, 10,20')
-                        .attr('stroke', this.strokeColor)
-                        .attr('fill', 'none')
-                        .style('opacity', d => (d.hasParent ? 0.75 : 0))
-                        .style('stroke-width', 2);
+                    this.appendBackIcon(enterSelection);
 
                     return enterSelection;
                 },
@@ -226,15 +223,8 @@ export default class D3ForceGraphLocal {
                         .duration(500)
                         .attr('transform', 'translate(0,0)');
 
-                    update
-                        .append('g')
-                        .attr('class', 'go-back')
-                        .append('polyline')
-                        .attr('points', '-10,20 0,10, 10,20')
-                        .attr('stroke', this.strokeColor)
-                        .attr('fill', 'none')
-                        .style('opacity', d => (d.hasParent ? 0.75 : 0))
-                        .style('stroke-width', 2);
+                    this.appendBackIcon(update);
+
                     return update;
                 },
                 exit => exit.remove()
@@ -276,6 +266,26 @@ export default class D3ForceGraphLocal {
                 }
             });
     };
+
+    offsetLabels = (
+        selection: Selection<SVGTextElement, LocalDSINode, any, any>
+    ) =>
+        selection
+            .attr('text-anchor', d =>
+                // center labels close to (0,) or anchor away from origin
+                d.id === this.selectedNode?.id || (-50 < d.x! && d.x! < 50)
+                    ? 'middle'
+                    : d.x! < 0
+                    ? 'end'
+                    : 'start'
+            )
+            .attr('y', d => {
+                if (d.id !== this.selectedNode?.id) {
+                    // offset labels at top and bottom for non-selected nodes
+                    return -50 < d.x! && d.x! < 50 ? (d.y! > 0 ? 25 : -25) : 0;
+                }
+                return 0;
+            });
 
     render = (tree: LocalDSINode, selectedNodeId: string) => {
         this.selectedNode = tree.find(n => selectedNodeId === n.id)!;

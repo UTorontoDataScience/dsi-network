@@ -1,7 +1,7 @@
 # dsi-network
 A webapp for visualizing data science resources at the University of Toronto
 
-## Stack
+## Details
 The DSI network application is written in [TypeScript](https://www.typescriptlang.org/) using the [React](https://reactjs.org/) framework and the [MaterialUI](https://mui.com/) component library. Visualizations are rendered with [D3](https://github.com/d3/d3), making particular use of the [force layout](https://github.com/d3/d3-force).
 
 ## Build instructions

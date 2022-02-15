@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/dsi-network/static/css/main.9c631f1d.css",
-    "main.js": "/dsi-network/static/js/main.3f98381a.js",
+    "main.js": "/dsi-network/static/js/main.59df9d84.js",
     "static/media/roboto-latin-900italic.woff": "/dsi-network/static/media/roboto-latin-900italic.c20d916c1a1b094c1cec.woff",
     "static/media/roboto-latin-300italic.woff": "/dsi-network/static/media/roboto-latin-300italic.bd5b7a13f2c52b531a2a.woff",
     "static/media/roboto-latin-500italic.woff": "/dsi-network/static/media/roboto-latin-500italic.18d00f739ff1e1c52db1.woff",
@@ -28,10 +28,10 @@
     "static/media/roboto-latin-900.woff2": "/dsi-network/static/media/roboto-latin-900.870c8c1486f76054301a.woff2",
     "index.html": "/dsi-network/index.html",
     "main.9c631f1d.css.map": "/dsi-network/static/css/main.9c631f1d.css.map",
-    "main.3f98381a.js.map": "/dsi-network/static/js/main.3f98381a.js.map"
+    "main.59df9d84.js.map": "/dsi-network/static/js/main.59df9d84.js.map"
   },
   "entrypoints": [
     "static/css/main.9c631f1d.css",
-    "static/js/main.3f98381a.js"
+    "static/js/main.59df9d84.js"
   ]
 }

@@ -264,6 +264,15 @@ const ChartPage: React.FC = () => {
         }
     };
 
+    const handleTabChange = (tab: number) => {
+        if (model) {
+            // reset tree root, even if it hasn't changed
+            // this will cause hooks to fire that rebuild tree, ensuring that any simulation coordinates are reset and subsequent renders aren't distorted
+            setRoot({ ...model.find(m => m.type === 'network')! });
+        }
+        setActiveTab(tab);
+    };
+
     const handleRootSelectChange = (e: SelectChangeEvent<string>) => {
         setRoot(
             (model || []).find(
@@ -290,15 +299,7 @@ const ChartPage: React.FC = () => {
     return (
         <Grid container direction="column" spacing={3}>
             <Grid item container justifyContent="center">
-                <Tabs
-                    value={activeTab}
-                    onChange={(_, v) => {
-                        setActiveTab(v);
-                        if (model) {
-                            setRoot(model.find(m => m.type === 'network'));
-                        }
-                    }}
-                >
+                <Tabs value={activeTab} onChange={(_, v) => handleTabChange(v)}>
                     <Tab label="Tree View" />
                     <Tab label="Nested View" />
                     <Tab label="Scrollable Bar" />

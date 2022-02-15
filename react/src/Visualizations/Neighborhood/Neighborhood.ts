@@ -7,6 +7,12 @@ import { getEntityId, makeTree } from '../../util';
 import { colorScale, drawLegend } from '../shared';
 import { LocalDSINode } from './NeighborhoodComponent';
 
+const yFromPolar = (radius: number, theta: number) =>
+    -(radius * Math.cos(theta * (Math.PI / 180)));
+
+const xFromPolar = (radius: number, theta: number) =>
+    radius * Math.sin(theta * (Math.PI / 180));
+
 export default class D3ForceGraphLocal {
     private circleContainer: Selection<
         SVGGElement,
@@ -98,14 +104,33 @@ export default class D3ForceGraphLocal {
                         .duration(500)
                         .attr('transform', d => `translate(${d.x}, ${d.y})`);
 
-                    enterNodeSelection
+                    const that = this;
+
+                    enterNodeSelection.each(function (c) {
+                        if (c.hasChildren && c.id !== that.selectedNode!.id!) {
+                            [1, 2, 3, 4].forEach(i => {
+                                select<SVGGElement, LocalDSINode>(this)
+                                    .append('circle')
+                                    .attr('class', 'lump')
+                                    .attr('cy', yFromPolar(nodeR, i * 90))
+                                    .attr('cx', xFromPolar(nodeR, i * 90))
+                                    .attr('fill', d => colorScale(d.data.type))
+                                    .attr('stroke', that.strokeColor)
+                                    .attr('r', 5);
+                            });
+                        }
+                    });
+
+                    const circleSelection = enterNodeSelection
                         .append('circle')
                         .attr('opacity', 0)
                         .attr('r', nodeR)
                         .attr('fill', d => colorScale(d.data.type))
                         .attr('stroke', d =>
                             d.hasChildren ? this.strokeColor : null
-                        )
+                        );
+
+                    circleSelection
                         .transition()
                         .duration(500)
                         .attr('opacity', 1);
@@ -130,6 +155,7 @@ export default class D3ForceGraphLocal {
                     update
                         .selectAll<SVGTextElement, LocalDSINode>('text')
                         .call(this.offsetLabels);
+
                     return update;
                 },
                 exit => {
@@ -224,6 +250,8 @@ export default class D3ForceGraphLocal {
                         .duration(500)
                         .attr('r', 50);
 
+                    update.selectAll('.lump').remove();
+
                     update
                         .transition()
                         .duration(500)
@@ -253,12 +281,16 @@ export default class D3ForceGraphLocal {
         this.appendNodes(treeWithCoordinates, Math.min(arcLength * 2, 50));
     };
 
+    /* 360 degrees is (0, -radius) here, so root node should always be directly above selected node  */
     calculateLayout = (tree: LocalDSINode, arcLength: number) => {
         const radius = this.h / 2.5;
+        const rootType = tree.data.type;
 
         let c = 0;
         return tree
-            .sort((a, b) => (a.data.type > b.data.type ? -1 : 1))
+            .sort((a, b) =>
+                a.data.type === rootType || a.data.type > b.data.type ? -1 : 1
+            )
             .each(n => {
                 const t = 360 - arcLength * c;
 
@@ -266,8 +298,8 @@ export default class D3ForceGraphLocal {
                     n.x = 0;
                     n.y = 0;
                 } else {
-                    n.y = -(radius * Math.cos(t * (Math.PI / 180)));
-                    n.x = radius * Math.sin(t * (Math.PI / 180));
+                    n.y = yFromPolar(radius, t);
+                    n.x = xFromPolar(radius, t);
                     c++;
                 }
             });
@@ -279,7 +311,7 @@ export default class D3ForceGraphLocal {
         selection
             .attr('text-anchor', d =>
                 // center labels close to (0,) or anchor away from origin
-                d.id === this.selectedNode?.id || (-50 < d.x! && d.x! < 50)
+                d.id === this.selectedNode?.id || (-25 < d.x! && d.x! < 25)
                     ? 'middle'
                     : d.x! < 0
                     ? 'end'

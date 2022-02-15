@@ -283,7 +283,6 @@ export default class D3ForceGraph {
             .text('Zoom: 100%')
             .attr('transform', `translate(2, 15)`);
 
-        /*eslint-disable-next-line @typescript-eslint/no-this-alias */
         const that = this;
 
         this.svg.on('click', function () {

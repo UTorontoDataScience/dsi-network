@@ -24,6 +24,7 @@ module.exports = {
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
         "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-this-alias": "off",
         "@typescript-eslint/no-explicit-any": "off",
         "import/order": [
             "error",

@@ -222,6 +222,17 @@ const ChartPage: React.FC = () => {
             );
     }, [model]);
 
+    const resetKeywordInputs = useCallback(() => {
+        setKeywordInputString('');
+        setSelectedKeyword('');
+        resetSelections();
+    }, []);
+
+    const resetNameSearchInputs = useCallback(() => {
+        setNameSearchInputString('');
+        resetSelections();
+    }, []);
+
     const handleNodeClick = useCallback(
         (node: DSINode, resetZoom: () => void) => {
             setLocalViewNode(node);
@@ -229,7 +240,7 @@ const ChartPage: React.FC = () => {
             resetNameSearchInputs();
             resetZoom();
         },
-        []
+        [resetNameSearchInputs, resetKeywordInputs]
     );
 
     const handleKeywordSearchSelect = (value?: string) => {
@@ -270,6 +281,8 @@ const ChartPage: React.FC = () => {
             // this will cause hooks to fire that rebuild tree, ensuring that any simulation coordinates are reset and subsequent renders aren't distorted
             setRoot({ ...model.find(m => m.type === 'network')! });
         }
+        resetKeywordInputs();
+        resetNameSearchInputs();
         setActiveTab(tab);
     };
 
@@ -283,15 +296,7 @@ const ChartPage: React.FC = () => {
         resetNameSearchInputs();
     };
 
-    const resetKeywordInputs = () => {
-        setKeywordInputString('');
-        setSelectedKeyword('');
-        setDetailSelection([]);
-        setSelected([]);
-    };
-
-    const resetNameSearchInputs = () => {
-        setNameSearchInputString('');
+    const resetSelections = () => {
         setDetailSelection([]);
         setSelected([]);
     };
@@ -306,7 +311,15 @@ const ChartPage: React.FC = () => {
                 </Tabs>
             </Grid>
             {activeTab === 0 && (
-                <Grid container direction="row" item spacing={3}>
+                <Grid
+                    container
+                    justifyContent="center"
+                    direction="row"
+                    item
+                    xs={12}
+                    md={9}
+                    spacing={3}
+                >
                     <Grid
                         container
                         justifyContent="flex-end"
@@ -323,7 +336,14 @@ const ChartPage: React.FC = () => {
                             />
                         )}
                     </Grid>
-                    <Grid item xs={3} container direction="column" spacing={5}>
+                    <Grid
+                        item
+                        xs={12}
+                        md={3}
+                        container
+                        direction="column"
+                        spacing={5}
+                    >
                         <Grid container direction="column" item spacing={2}>
                             <Grid item>
                                 <FormControl fullWidth>

@@ -268,8 +268,8 @@ export default class D3ForceGraphLocal {
     };
 
     buildChart = async (tree: LocalDSINode) => {
-        const arcLength = 360 / Math.max(tree.descendants().length - 1, 2);
-        const treeWithCoordinates = this.calculateLayout(tree, arcLength);
+        const angle = 360 / Math.max(tree.descendants().length - 1, 2);
+        const treeWithCoordinates = this.calculateLayout(tree, angle);
         const lines = this.appendLines(treeWithCoordinates);
         await this.appendSelectedNode();
         lines
@@ -278,11 +278,11 @@ export default class D3ForceGraphLocal {
             .attr('x2', d => d.x!)
             .attr('y2', d => d.y!);
 
-        this.appendNodes(treeWithCoordinates, Math.min(arcLength * 2, 50));
+        this.appendNodes(treeWithCoordinates, Math.min(angle * 2, 50));
     };
 
     /* 360 degrees is (0, -radius) here, so root node should always be directly above selected node  */
-    calculateLayout = (tree: LocalDSINode, arcLength: number) => {
+    calculateLayout = (tree: LocalDSINode, angle: number) => {
         const radius = this.h / 2.5;
         const rootType = tree.data.type;
 
@@ -292,7 +292,7 @@ export default class D3ForceGraphLocal {
                 a.data.type === rootType || a.data.type > b.data.type ? -1 : 1
             )
             .each(n => {
-                const t = 360 - arcLength * c;
+                const t = 360 - angle * c;
 
                 if (getEntityId(n.data) === this?.selectedNode?.id) {
                     n.x = 0;

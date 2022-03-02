@@ -12,8 +12,6 @@ import {
     Paper,
     Select,
     SelectChangeEvent,
-    Tab,
-    Tabs,
     TextField,
     Typography,
 } from '@mui/material';
@@ -21,12 +19,7 @@ import { HierarchyNode } from 'd3-hierarchy';
 import { DetailCard } from '../../Components';
 import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
-import {
-    ForceGraph,
-    Neighborhood,
-    PackChart,
-    ScrollableBarChart,
-} from '../../Visualizations';
+import { ForceGraph, Neighborhood } from '../../Visualizations';
 import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
 import {
     DSINode,
@@ -39,7 +32,6 @@ import { CloseIcon } from '../../Icons';
 import { LocalDSINode } from '../../Visualizations/Neighborhood/NeighborhoodComponent';
 
 const ChartPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState(0);
     const [containerWidth, setContainerWidth] = useState<number>();
     const [detailSelection, setDetailSelection] = useState<
         HierarchyNode<ModelEntity>[]
@@ -124,31 +116,6 @@ const ChartPage: React.FC = () => {
             : isProgram(node)
             ? node.key_words_tags || ''
             : '';
-
-    const barChartKeywords = useMemo(() => {
-        if (model) {
-            const counts = Object.values(model)
-                .flatMap(e =>
-                    getKeywords(e)
-                        .split(/[;,]/)
-                        .map(d => d.trim().replace(/ +/g, ' '))
-                )
-                .filter(w => !!w && w.length < 40)
-                .reduce<Record<string, number>>(
-                    (acc, curr) => ({
-                        ...acc,
-                        [curr.toLowerCase()]: acc[curr.toLowerCase()]
-                            ? acc[curr.toLowerCase()] + 1
-                            : 1,
-                    }),
-                    {}
-                );
-
-            return Object.entries(counts)
-                .filter(v => v[1] > 1)
-                .map(([label, value]) => ({ label, value }));
-        }
-    }, [model]);
 
     const keywords = useMemo(() => {
         if (tree0) {
@@ -275,17 +242,6 @@ const ChartPage: React.FC = () => {
         }
     };
 
-    const handleTabChange = (tab: number) => {
-        if (model) {
-            // reset tree root, even if it hasn't changed
-            // this will cause hooks to fire that rebuild tree, ensuring that any simulation coordinates are reset and subsequent renders aren't distorted
-            setRoot({ ...model.find(m => m.type === 'network')! });
-        }
-        resetKeywordInputs();
-        resetNameSearchInputs();
-        setActiveTab(tab);
-    };
-
     const handleRootSelectChange = (e: SelectChangeEvent<string>) => {
         setRoot(
             (model || []).find(
@@ -302,135 +258,112 @@ const ChartPage: React.FC = () => {
     };
 
     return (
-        <Grid container direction="column" spacing={3}>
-            <Grid item container justifyContent="center">
-                <Tabs value={activeTab} onChange={(_, v) => handleTabChange(v)}>
-                    <Tab label="Tree View" />
-                    <Tab label="Nested View" />
-                    <Tab label="Scrollable Bar" />
-                </Tabs>
-            </Grid>
-            {activeTab === 0 && (
+        <Grid container sx={{ marginTop: 3 }} direction="column" spacing={3}>
+            <Grid
+                container
+                justifyContent="center"
+                direction="row"
+                item
+                xs={12}
+                md={9}
+                spacing={3}
+            >
                 <Grid
                     container
-                    justifyContent="center"
-                    direction="row"
+                    justifyContent="flex-end"
+                    ref={chartContainerRef}
                     item
-                    xs={12}
-                    md={9}
-                    spacing={3}
+                    xs={9}
                 >
-                    <Grid
-                        container
-                        justifyContent="flex-end"
-                        ref={chartContainerRef}
-                        item
-                        xs={9}
-                    >
-                        {tree && containerWidth && (
-                            <ForceGraph
-                                containerWidth={containerWidth}
-                                onNodeClick={handleNodeClick}
-                                onBackgroundClick={() => setSelected([])}
-                                tree={tree}
-                            />
-                        )}
-                    </Grid>
-                    <Grid
-                        item
-                        xs={12}
-                        md={3}
-                        container
-                        direction="column"
-                        spacing={5}
-                    >
-                        <Grid container direction="column" item spacing={2}>
-                            <Grid item>
-                                <FormControl fullWidth>
-                                    <InputLabel htmlFor="root">Root</InputLabel>
-                                    <Select
-                                        id="root"
-                                        onChange={handleRootSelectChange}
-                                        value={root ? getEntityId(root) : ''}
-                                    >
-                                        {selectableRoots.map(m => (
-                                            <MenuItem
-                                                key={m.name}
-                                                value={getEntityId(m)}
-                                            >
-                                                <Typography>
-                                                    {m.name}
-                                                </Typography>
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                            <Grid item>
-                                <FormControl fullWidth>
-                                    {tree0 && tree && (
-                                        <ChartPageAutocomplete
-                                            label="Search by name or program"
-                                            getOptionLabel={m => capitalize(m)}
-                                            inputValue={nameSearchInputString}
-                                            onInputChange={(value: string) => {
-                                                setNameSearchInputString(value);
-                                                resetKeywordInputs();
-                                                if (!value) {
-                                                    setSelected([]);
-                                                }
-                                            }}
-                                            onSelect={handleNameSearchSelect}
-                                            options={names}
-                                            tree={tree}
-                                            value={nameSearchInputString}
-                                        />
-                                    )}
-                                </FormControl>
-                            </Grid>
-                            <Grid item>
-                                <FormControl fullWidth>
-                                    {tree && keywords && (
-                                        <ChartPageAutocomplete
-                                            getOptionLabel={o => capitalize(o)}
-                                            inputValue={keywordInputString}
-                                            label="Search by keyword"
-                                            onInputChange={(value: string) => {
-                                                setKeywordInputString(value);
-                                                resetNameSearchInputs();
-                                                if (!value) {
-                                                    setSelected([]);
-                                                }
-                                            }}
-                                            onSelect={handleKeywordSearchSelect}
-                                            options={keywords}
-                                            tree={tree}
-                                            value={selectedKeyword}
-                                        />
-                                    )}
-                                </FormControl>
-                            </Grid>
-                        </Grid>
-                        <Grid item>
-                            {!!detailSelection.length && (
-                                <DetailCard nodes={detailSelection} />
-                            )}
-                        </Grid>
-                    </Grid>
-                </Grid>
-            )}
-            {activeTab === 1 && (
-                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
-                    {model && <PackChart entities={model} />}
-                </Grid>
-            )}
-            {activeTab === 2 && (
-                <Grid container justifyContent="center" sx={{ marginTop: 3 }}>
-                    {barChartKeywords && (
-                        <ScrollableBarChart data={barChartKeywords} />
+                    {tree && containerWidth && (
+                        <ForceGraph
+                            containerWidth={containerWidth}
+                            onNodeClick={handleNodeClick}
+                            onBackgroundClick={() => setSelected([])}
+                            tree={tree}
+                        />
                     )}
                 </Grid>
-            )}
+                <Grid
+                    item
+                    xs={12}
+                    md={3}
+                    container
+                    direction="column"
+                    spacing={5}
+                >
+                    <Grid container direction="column" item spacing={2}>
+                        <Grid item>
+                            <FormControl fullWidth>
+                                <InputLabel htmlFor="root">Root</InputLabel>
+                                <Select
+                                    id="root"
+                                    onChange={handleRootSelectChange}
+                                    value={root ? getEntityId(root) : ''}
+                                >
+                                    {selectableRoots.map(m => (
+                                        <MenuItem
+                                            key={m.name}
+                                            value={getEntityId(m)}
+                                        >
+                                            <Typography>{m.name}</Typography>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item>
+                            <FormControl fullWidth>
+                                {tree0 && tree && (
+                                    <ChartPageAutocomplete
+                                        label="Search by name or program"
+                                        getOptionLabel={m => capitalize(m)}
+                                        inputValue={nameSearchInputString}
+                                        onInputChange={(value: string) => {
+                                            setNameSearchInputString(value);
+                                            resetKeywordInputs();
+                                            if (!value) {
+                                                setSelected([]);
+                                            }
+                                        }}
+                                        onSelect={handleNameSearchSelect}
+                                        options={names}
+                                        tree={tree}
+                                        value={nameSearchInputString}
+                                    />
+                                )}
+                            </FormControl>
+                        </Grid>
+                        <Grid item>
+                            <FormControl fullWidth>
+                                {tree && keywords && (
+                                    <ChartPageAutocomplete
+                                        getOptionLabel={o => capitalize(o)}
+                                        inputValue={keywordInputString}
+                                        label="Search by keyword"
+                                        onInputChange={(value: string) => {
+                                            setKeywordInputString(value);
+                                            resetNameSearchInputs();
+                                            if (!value) {
+                                                setSelected([]);
+                                            }
+                                        }}
+                                        onSelect={handleKeywordSearchSelect}
+                                        options={keywords}
+                                        tree={tree}
+                                        value={selectedKeyword}
+                                    />
+                                )}
+                            </FormControl>
+                        </Grid>
+                    </Grid>
+                    <Grid item>
+                        {!!detailSelection.length && (
+                            <DetailCard nodes={detailSelection} />
+                        )}
+                    </Grid>
+                </Grid>
+            </Grid>
             {tree0 && !!localViewNode && (
                 <LocalView
                     tree={tree0}

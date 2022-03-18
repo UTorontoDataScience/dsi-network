@@ -1,61 +1,26 @@
 import { datatype } from 'faker';
 import {
-    AcademicProgram,
-    AcademicProgramsDataRaw,
     PersonDataRaw,
     Person,
-    Resource,
     Relationship,
     Network,
     Institution,
-    Campus,
     Division,
     Unit,
     ModelEntity,
 } from '../types';
 import { getKeys, groupBy, uniqueBy } from '../util/util';
 
-const fetchAcademicProgramsData = async () => {
-    return (await (await fetch('academic-programs.json')).json()) as Promise<
-        AcademicProgramsDataRaw[]
-    >;
-};
-
 const fetchPeopleData = async () => {
-    return (await (await fetch('people.json')).json()) as Promise<
+    return (await (await fetch('members-simplified.json')).json()) as Promise<
         PersonDataRaw[]
     >;
-};
-
-const fetchResourceData = async () => {
-    return (await (await fetch('resource.json')).json()) as Promise<Resource[]>;
 };
 
 const baseEntityAttributes = {
     parentId: null,
     parentType: null,
     relationship: null,
-};
-
-const yesToBool = (str?: string) =>
-    str && str.toLowerCase() === 'yes' ? true : false;
-
-const transformPrograms = (data: AcademicProgramsDataRaw[]) => {
-    const programMap = groupBy(data, 'program');
-
-    return data.map<AcademicProgram>((u, id) => ({
-        ...u,
-        id: id + 1,
-        is_education: yesToBool(u.type_education),
-        is_research: yesToBool(u.type_research),
-        is_resource: yesToBool(u.type_resource),
-        name:
-            programMap[u.program].length > 1
-                ? `${u.program} (${u.campus})`.trim()
-                : u.program.trim(),
-        type: 'program' as const,
-        ...baseEntityAttributes,
-    }));
 };
 
 /* 
@@ -94,12 +59,7 @@ const getPersonRelationship = (role: string): Relationship =>
         ? 'professor'
         : 'principal_investigator';
 
-/*  add parent identifiers and split person entries by role */
-const linkEntities = (
-    programs: AcademicProgram[],
-    people: Person[],
-    resources: Resource[]
-) => {
+const linkEntities = (people: Person[]) => {
     const network: Network = {
         name: 'Data Science Network',
         id: 1,
@@ -122,28 +82,15 @@ const linkEntities = (
 
     const UofT = institutions.find(i => i.name === 'University of Toronto')!;
 
-    const campuses: Campus[] = [...new Set(programs.map(u => u.campus))]
-        .filter(Boolean)
-        .map((d, id) => ({
-            name: d.trim(),
-            id: id + 1,
-            parentId: UofT.id,
-            parentType: 'institution',
-            relationship: 'campus',
-            type: 'campus' as const,
-        }));
-
-    const campusMap = groupBy(campuses, 'name');
-
     const _divisionMap = groupBy(
-        programs.filter(p => !!p.division),
+        people.filter(p => !!p.division),
         'division'
     );
 
     /* if a division has a campus, associate it, otherwise, associate with uoft generally */
     const divisions = [
         ...new Set(
-            programs.map(d => d.division).concat(people.map(d => d.division))
+            people.map(d => d.division).concat(people.map(d => d.division))
         ),
     ]
         .map((d, i) => ({
@@ -151,16 +98,18 @@ const linkEntities = (
             name: d?.trim(),
             type: 'division' as const,
             parentId: _divisionMap[d]
-                ? campuses.find(c => _divisionMap[d][0].campus! === c.name)!.id
+                ? institutions.find(
+                      c => _divisionMap[d][0].institution! === c.name
+                  )!.id
                 : UofT.id,
-            parentType: _divisionMap[d] ? 'campus' : 'institution',
+            parentType: 'institution',
             relationship: 'division',
         }))
         .filter(d => !!d.name && d.parentId && d.name) as Division[];
 
     const divisionMap = groupBy(divisions, 'name');
 
-    const units = programs
+    const units = people
         .filter(uniqueBy('unit'))
         .map(u => ({ division: u.division, department: u.unit }))
         .concat(
@@ -197,11 +146,11 @@ const linkEntities = (
     /* attach to parent in order of ascending generality */
     const linkedPeople = filteredPeople
         .map(p => {
-            if (unitMap[p.department]) {
+            if (unitMap[p.unit]) {
                 return {
                     ...p,
                     parentType: 'unit',
-                    parentId: unitMap[p.department][0].id,
+                    parentId: unitMap[p.unit][0].id,
                     relationship: getPersonRelationship(p.role),
                 };
             } else if (divisionMap[p.division]) {
@@ -222,76 +171,13 @@ const linkEntities = (
         })
         .filter(Boolean) as Person[];
 
-    // units (departments) are parents of programs -- try linking there first, then division
-    const filteredPrograms = programs
-        .map(p => {
-            let divisionId: number | undefined;
-            const unitId = p.unit
-                ? units.find(u => u.name === p.unit)?.id
-                : null;
-            if (unitId) {
-                return {
-                    ...p,
-                    parentId: unitId,
-                    parentType: 'unit',
-                    relationship: 'department',
-                };
-            } else {
-                divisionId = divisions.find(d => p.division === d.name)?.id;
-            }
-            if (divisionId) {
-                return {
-                    ...p,
-                    parentId: divisionId,
-                    parentType: 'division',
-                    relationship: 'division',
-                };
-            } else return false;
-        })
-        .filter(p => !!p && p.parentId) as AcademicProgram[];
-
-    /* for the time being we won't use resource institutions to make top-level entries but will link to existing */
-    const resource = resources
-        .map((r, i) => {
-            if (divisionMap[r.division]) {
-                return {
-                    ...r,
-                    id: i + 1,
-                    type: 'resource',
-                    parentId: divisionMap[r.division][0].id,
-                    parentType: 'division',
-                    relationship: 'resource',
-                };
-            } else if (campusMap[r.campus]) {
-                return {
-                    ...r,
-                    id: i + 1,
-                    type: 'resource',
-                    parentId: campusMap[r.campus][0].id,
-                    parentType: 'campus',
-                    relationship: 'resource',
-                };
-            } else if (institutionMap[r.institution]) {
-                return {
-                    ...r,
-                    id: i + 1,
-                    type: 'resource',
-                    parentId: institutionMap[r.institution][0].id,
-                    parentType: 'institution',
-                    relationship: 'resource',
-                };
-            } else return null;
-        })
-        .filter(Boolean) as Resource[];
+    debugger;
 
     return [
-        ...campuses,
         ...divisions,
-        ...filteredPrograms,
         ...institutions,
         ...linkedPeople,
         network,
-        ...resource,
         ...units,
     ].filter(m => m.name !== 'Not Applicable');
 };
@@ -301,11 +187,7 @@ const getModel = async (): Promise<ModelEntity[]> => {
         .flatMap(transformPerson)
         .filter(Boolean) as Person[];
 
-    const programData = await fetchAcademicProgramsData();
-    const resources = await fetchResourceData();
-    const programs = transformPrograms(programData);
-
-    return linkEntities(programs, people, resources);
+    return linkEntities(people);
 };
 
 export default getModel;

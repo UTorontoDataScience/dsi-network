@@ -21,13 +21,7 @@ import { groupBy, uniqueBy } from '../../util/util';
 import getModel from '../../data/model';
 import { ForceGraph, Neighborhood } from '../../Visualizations';
 import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
-import {
-    DSINode,
-    isPerson,
-    isProgram,
-    isResource,
-    ModelEntity,
-} from '../../types';
+import { DSINode, isPerson, ModelEntity } from '../../types';
 import { CloseIcon } from '../../Icons';
 import { LocalDSINode } from '../../Visualizations/Neighborhood/NeighborhoodComponent';
 
@@ -109,13 +103,7 @@ const ChartPage: React.FC = () => {
     }, [tree0, selected]);
 
     const getKeywords = (node: ModelEntity) =>
-        isPerson(node)
-            ? node.research_keywords || ''
-            : isResource(node)
-            ? node.keywords || ''
-            : isProgram(node)
-            ? node.key_words_tags || ''
-            : '';
+        isPerson(node) ? node.research_keywords || '' : '';
 
     const keywords = useMemo(() => {
         if (tree0) {

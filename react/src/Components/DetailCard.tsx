@@ -8,24 +8,12 @@ import {
     Typography,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
-import {
-    AcademicProgram,
-    isPeopleNodes,
-    isProgramNodes,
-    isResourceNodes,
-    ModelEntity,
-    Person,
-    Resource,
-} from '../types';
+import { isPeopleNodes, ModelEntity, Person } from '../types';
 import { compose, getEntityId, snakeToSpace } from '../util';
 
 const resolveDetailComponent = (nodes: HierarchyNode<ModelEntity>[]) => {
-    if (isProgramNodes(nodes)) {
-        return <ProgramDetailCard nodes={nodes} />;
-    } else if (isPeopleNodes(nodes)) {
+    if (isPeopleNodes(nodes)) {
         return <PersonDetailCard nodes={nodes} />;
-    } else if (isResourceNodes(nodes)) {
-        return <ResourceDetailCard nodes={nodes} />;
     } else return null;
 };
 
@@ -68,38 +56,6 @@ const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
                 keywords={nodes[0].data.research_keywords}
                 label="Research Interests"
             />
-        )}
-    </>
-);
-
-const ProgramDetailCard: React.FC<{
-    nodes: HierarchyNode<AcademicProgram>[];
-}> = ({ nodes }) => (
-    <>
-        {!!nodes[0].data.unit && <Typography>{nodes[0].data.unit}</Typography>}
-        {!!nodes[0].data.short_description && (
-            <Typography variant="caption">
-                {nodes[0].data.short_description}
-            </Typography>
-        )}
-        {!!nodes[0].data.key_words_tags && (
-            <KeywordList
-                keywords={nodes[0].data.key_words_tags}
-                label="Keywords"
-            />
-        )}
-    </>
-);
-
-const ResourceDetailCard: React.FC<{
-    nodes: HierarchyNode<Resource>[];
-}> = ({ nodes }) => (
-    <>
-        {!!nodes[0].data.institution && (
-            <Typography>{nodes[0].data.institution}</Typography>
-        )}
-        {!!(nodes[0].data.keywords || '').trim() && (
-            <KeywordList keywords={nodes[0].data.keywords} label="Keywords" />
         )}
     </>
 );

@@ -424,15 +424,10 @@ export default class D3ForceGraph {
     ) =>
         this.simulation
             .nodes(nodes)
-            .force(
-                'charge',
-                forceManyBody()
-                    .strength(-40)
-                    .distanceMax(w / 3.1)
-            )
-            .force('links', forceLinks.distance(w / 40).strength(1))
-            .force('collision', forceCollide().radius(7))
-            .force('center', forceCenter())
+            .force('charge', forceManyBody().strength(-30).distanceMax(w))
+            .force('links', forceLinks.distance(w / 8).strength(0.66))
+            .force('collision', forceCollide().radius(1))
+            .force('center', forceCenter(5))
             .velocityDecay(0.1);
 
     private registerNodeClickBehavior = (selection: DSINodeSelection) =>

@@ -51,16 +51,16 @@ export default class D3ForceGraphLocal {
             .attr('class', 'main')
             .attr('viewBox', [-this.w / 2, -this.h / 2, this.w, this.h])
             .append('g')
-            .attr('class', 'chart-container');
+            .attr('class', 'neighborhood-chart-container');
 
         this.lineContainer = this.svg
             .append('g')
-            .attr('class', 'line-container')
+            .attr('class', 'neighborhood-line-container')
             .attr('stroke-width', 2);
 
         this.circleContainer = this.svg
             .append('g')
-            .attr('class', 'circle-container');
+            .attr('class', 'neighborhood-circle-container');
 
         drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
     }

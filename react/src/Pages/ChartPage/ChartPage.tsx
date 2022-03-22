@@ -180,23 +180,14 @@ const ChartPage: React.FC = () => {
     const resetKeywordInputs = useCallback(() => {
         setKeywordInputString('');
         setSelectedKeyword('');
-        resetSelections();
     }, []);
 
-    const resetNameSearchInputs = useCallback(() => {
-        setNameSearchInputString('');
-        resetSelections();
-    }, []);
-
-    const handleNodeClick = useCallback(
-        (node: DSINode, resetZoom: () => void) => {
-            setLocalViewNode(node);
-            resetKeywordInputs();
-            resetNameSearchInputs();
-            resetZoom();
-        },
-        [resetNameSearchInputs, resetKeywordInputs]
+    const resetNameSearchInputs = useCallback(
+        () => setNameSearchInputString(''),
+        []
     );
+
+    const handleNodeClick = (node: DSINode) => setLocalViewNode(node);
 
     const handleKeywordSearchSelect = (value?: string) => {
         setSelectedKeyword(value || '');
@@ -238,6 +229,7 @@ const ChartPage: React.FC = () => {
         );
         resetKeywordInputs();
         resetNameSearchInputs();
+        resetSelections();
     };
 
     const resetSelections = () => {
@@ -332,6 +324,7 @@ const ChartPage: React.FC = () => {
                                         onInputChange={(value: string) => {
                                             setKeywordInputString(value);
                                             resetNameSearchInputs();
+                                            setDetailSelection([]);
                                             if (!value) {
                                                 setSelected([]);
                                             }
@@ -356,7 +349,11 @@ const ChartPage: React.FC = () => {
                 <LocalView
                     tree={tree0}
                     nodeId={getEntityId(localViewNode.data)}
-                    onClose={() => setLocalViewNode(undefined)}
+                    onClose={() => {
+                        setLocalViewNode(undefined);
+                        resetKeywordInputs();
+                        resetNameSearchInputs();
+                    }}
                     resetViewNode={setLocalViewNode}
                     setSelected={setSelected}
                 />

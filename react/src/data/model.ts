@@ -57,11 +57,13 @@ const transformPerson = (person: PersonDataRaw) => [
 const getPersonRelationship = (role: string): Relationship =>
     role.toLowerCase().includes('professor')
         ? 'professor'
+        : role.toLowerCase().includes('scientist')
+        ? 'scientist'
         : 'principal_investigator';
 
 const linkEntities = (people: Person[]) => {
     const network: Network = {
-        name: 'Data Science Network',
+        name: 'Data Sciences Institute Network',
         id: 1,
         type: 'network',
         ...baseEntityAttributes,
@@ -135,9 +137,10 @@ const linkEntities = (people: Person[]) => {
 
     const filteredPeople = people.filter(
         p =>
-            !!p.role &&
-            (p.role.toLowerCase().includes('professor') ||
-                p.role.toLowerCase().includes('investigator'))
+            (!!p.role &&
+                (p.role.toLowerCase().includes('professor') ||
+                    p.role.toLowerCase().includes('investigator'))) ||
+            p.role.toLowerCase().includes('scientist')
     );
 
     const unitMap = groupBy(units, 'name');
@@ -170,8 +173,6 @@ const linkEntities = (people: Person[]) => {
             } else return null;
         })
         .filter(Boolean) as Person[];
-
-    debugger;
 
     return [
         ...divisions,

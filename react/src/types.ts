@@ -100,6 +100,7 @@ export type Relationship =
     | 'program'
     | 'researcher'
     | 'resource'
+    | 'scientist'
     | 'staff'
     | 'support'
     | 'undergraduate';

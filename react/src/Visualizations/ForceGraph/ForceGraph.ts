@@ -133,9 +133,7 @@ const showToolTip = (e: MouseEvent) => {
         .style('top', `${e.pageY - 25}px`);
 };
 
-const hideToolTip = () => {
-    select('.tooltip').style('visibility', 'hidden');
-};
+const hideToolTip = () => select('.tooltip').style('visibility', 'hidden');
 
 const registerDragHandler = (
     selection: DSINodeSelection,
@@ -149,7 +147,7 @@ const registerDragHandler = (
             n.fx = null;
             n.fy = null;
         });
-        simulation.alphaTarget(0.01).restart();
+        simulation.alphaTarget(0.1).restart();
         d.fx = d.x;
         d.fy = d.y;
     };
@@ -205,7 +203,7 @@ export default class D3ForceGraph {
     }: D3ZoomEvent<SVGSVGElement, unknown>) => void;
     private h: number;
     private onBackgroundClick: () => void;
-    public onNodeClick: (node: DSINode, resetZoom: () => void) => void;
+    public onNodeClick: (node: DSINode) => void;
     private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
     private simulation: DSISimulation;
     private strokeColor: string;
@@ -216,7 +214,7 @@ export default class D3ForceGraph {
         theme: Theme,
         tree: DSINode,
         onBackgroundClick: () => void,
-        onNodeClick: (node: DSINode, resetZoom: () => void) => void
+        onNodeClick: (node: DSINode) => void
     ) {
         this.fillColor = theme.palette.background.default;
         this.strokeColor = theme.palette.text.primary;
@@ -421,19 +419,43 @@ export default class D3ForceGraph {
         nodes: DSINode[],
         w: number,
         forceLinks: DSIForceLinks
-    ) =>
-        this.simulation
-            .nodes(nodes)
-            .force('charge', forceManyBody().strength(-30).distanceMax(w))
-            .force('links', forceLinks.distance(w / 8).strength(0.66))
-            .force('collision', forceCollide().radius(1))
-            .force('center', forceCenter(5))
-            .velocityDecay(0.1);
+    ) => {
+        return (
+            this.simulation
+                .nodes(nodes)
+                .force(
+                    'charge',
+                    forceManyBody()
+                        .strength(-40)
+                        .distanceMax(w / 3)
+                )
+                .force(
+                    'links',
+                    forceLinks
+                        .distance(d =>
+                            (d.target as DSINode)
+                                .descendants()
+                                .find(
+                                    desc =>
+                                        desc.depth > (d.target as DSINode).depth
+                                )
+                                ? w / 6
+                                : w / 28
+                        )
+                        .strength(1)
+                )
+                .force('collision', forceCollide().radius(5))
+                // keep the visualization centered on the page
+                .force('center', forceCenter(0, 0))
+                .velocityDecay(0.1)
+        );
+    };
 
     private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
-            this.onNodeClick(node, this.resetZoom.bind(this));
+            hideToolTip();
+            this.onNodeClick(node);
         });
 
     remove = () => this.svg.selectAll('.container').selectAll('*').remove();
@@ -509,19 +531,28 @@ export default class D3ForceGraph {
 
         const forceLinks = buildForceLinks(tree.links());
 
-        //fix coordinates of unselected nodes
-        tree.each(n => {
-            if (!n.selected) {
-                n.fx = n.x;
-                n.fy = n.y;
-            }
-        });
-
         // stop sim to prevent timing issues
         this.simulation.stop();
 
         this.simulation.nodes(tree.descendants());
-        this.simulation.force('links', forceLinks);
+
+        // add new links to force
+        this.simulation.force(
+            'links',
+            forceLinks
+                .distance(d =>
+                    (d.target as DSINode)
+                        .descendants()
+                        // long links only for links targeting a node with non-person children
+                        .filter(d => d.data.type !== 'person')
+                        .find(desc => desc.depth > (d.target as DSINode).depth)
+                        ? this.w / 6
+                        : (d.target as DSINode).data.type == 'person'
+                        ? this.w / 75
+                        : this.w / 28
+                )
+                .strength(1)
+        );
 
         const linkSelection = this.appendLinks(forceLinks);
         const nodeSelection = this.appendNodes(this.simulation!.nodes());
@@ -529,9 +560,7 @@ export default class D3ForceGraph {
         // references have been broken w/ previous data, so we need to reregister handler
         registerTickHandler(this.simulation!, linkSelection, nodeSelection);
 
-        this.simulation.force('center', null);
-        this.simulation.alpha(0.05);
-        this.simulation.velocityDecay(0.5);
+        this.simulation.alpha(0.5);
         this.simulation.restart();
 
         const selectedNodes = this.simulation.nodes().filter(n => n.selected);

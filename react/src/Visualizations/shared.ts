@@ -5,12 +5,10 @@ import { BaseType, Selection } from 'd3-selection';
 import { EntityType } from '../types';
 
 const entityTypes: EntityType[] = [
-    'campus',
     'division',
     'institution',
     'person',
     'program',
-    'resource',
     'unit',
 ];
 

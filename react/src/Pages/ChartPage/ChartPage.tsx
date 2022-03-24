@@ -8,8 +8,9 @@ import {
     FormControl,
     Grid,
     IconButton,
+    List,
+    ListItem,
     Paper,
-    SelectChangeEvent,
     TextField,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
@@ -23,7 +24,6 @@ import { CloseIcon } from '../../Icons';
 import { LocalDSINode } from '../../Visualizations/Neighborhood/NeighborhoodComponent';
 
 const ChartPage: React.FC = () => {
-    const [containerWidth, setContainerWidth] = useState<number>();
     const [detailSelection, setDetailSelection] = useState<
         HierarchyNode<ModelEntity>[]
     >([]);
@@ -34,12 +34,6 @@ const ChartPage: React.FC = () => {
     const [root, setRoot] = useState<ModelEntity>();
     const [selected, setSelected] = useState<ModelEntity[]>([]);
     const [selectedKeyword, setSelectedKeyword] = useState('');
-
-    const chartContainerRef = useCallback((node: HTMLDivElement) => {
-        if (node) {
-            setContainerWidth(Math.min(node.clientWidth, 1200));
-        }
-    }, []);
 
     useEffect(() => {
         const _getModel = async () => {
@@ -171,10 +165,10 @@ const ChartPage: React.FC = () => {
         setSelectedKeyword('');
     }, []);
 
-    const resetNameSearchInputs = useCallback(
-        () => setNameSearchInputString(''),
-        []
-    );
+    const resetNameSearch = useCallback(() => {
+        setNameSearchInputString('');
+        setDetailSelection([]);
+    }, []);
 
     const handleNodeClick = (node: DSINode) => setLocalViewNode(node);
 
@@ -210,11 +204,6 @@ const ChartPage: React.FC = () => {
         }
     };
 
-    const resetSelections = () => {
-        setDetailSelection([]);
-        setSelected([]);
-    };
-
     return (
         <Grid container sx={{ marginTop: 3 }} direction="column" spacing={3}>
             <Grid
@@ -226,16 +215,9 @@ const ChartPage: React.FC = () => {
                 md={9}
                 spacing={3}
             >
-                <Grid
-                    container
-                    justifyContent="flex-end"
-                    ref={chartContainerRef}
-                    item
-                    xs={9}
-                >
-                    {tree && containerWidth && (
+                <Grid container justifyContent="flex-end" item xs={9}>
+                    {tree && (
                         <ForceGraph
-                            containerWidth={containerWidth}
                             onNodeClick={handleNodeClick}
                             onBackgroundClick={() => setSelected([])}
                             tree={tree}
@@ -282,7 +264,7 @@ const ChartPage: React.FC = () => {
                                         label="Search by keyword"
                                         onInputChange={(value: string) => {
                                             setKeywordInputString(value);
-                                            resetNameSearchInputs();
+                                            resetNameSearch();
                                             setDetailSelection([]);
                                             if (!value) {
                                                 setSelected([]);
@@ -302,6 +284,17 @@ const ChartPage: React.FC = () => {
                             <DetailCard nodes={detailSelection} />
                         )}
                     </Grid>
+                    <Grid item>
+                        {!!selected.length && !detailSelection.length && (
+                            <List>
+                                {selected.map(item => (
+                                    <ListItem key={item.name}>
+                                        {item.name}
+                                    </ListItem>
+                                ))}
+                            </List>
+                        )}
+                    </Grid>
                 </Grid>
             </Grid>
             {tree0 && !!localViewNode && (
@@ -311,7 +304,7 @@ const ChartPage: React.FC = () => {
                     onClose={() => {
                         setLocalViewNode(undefined);
                         resetKeywordInputs();
-                        resetNameSearchInputs();
+                        resetNameSearch();
                     }}
                     resetViewNode={setLocalViewNode}
                     setSelected={setSelected}

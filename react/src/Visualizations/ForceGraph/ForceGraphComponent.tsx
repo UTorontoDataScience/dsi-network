@@ -10,14 +10,12 @@ export interface SelectedModel {
     type: EntityType;
 }
 interface ForceGraphProps {
-    containerWidth: number;
     onBackgroundClick: () => void;
     onNodeClick: (node: DSINode) => void;
     tree: HierarchyNode<ModelEntity>;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
-    containerWidth,
     onBackgroundClick,
     onNodeClick,
     tree,
@@ -30,7 +28,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
 
     /* initialize */
     useEffect(() => {
-        if (tree && !Graph && containerWidth) {
+        if (tree && !Graph) {
             const Graph = new D3ForceGraph(
                 targetId,
                 theme,
@@ -41,7 +39,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             Graph.render();
             setGraph(Graph);
         }
-    }, [containerWidth, Graph, onBackgroundClick, onNodeClick, tree, theme]);
+    }, [Graph, onBackgroundClick, onNodeClick, tree, theme]);
 
     /* toggle dark mode */
     useEffect(() => {
@@ -72,9 +70,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [tree]);
 
-    return containerWidth ? (
-        <Box width={`${containerWidth}px`} id={targetId} />
-    ) : null;
+    return <Box padding={5} width="100%" id={targetId} />;
 };
 
 export default ForceGraph;

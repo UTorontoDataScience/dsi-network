@@ -5,6 +5,7 @@ import {
     Card,
     CardContent,
     Divider,
+    Link,
     Typography,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
@@ -48,6 +49,12 @@ const PersonDetailCard: React.FC<{ nodes: HierarchyNode<Person>[] }> = ({
                 </Typography>
             );
         })}
+        {/* right now some of these seem unreliable */}
+        {!!nodes[0].data.prof_url && nodes[0].data.prof_url.startsWith('http') && (
+            <Link target="_blank" rel="noopener" href={nodes[0].data.prof_url}>
+                Professional Site
+            </Link>
+        )}
         {!!nodes[0].data.email && (
             <Typography>{nodes[0].data.email}</Typography>
         )}

@@ -136,14 +136,38 @@ export default class D3ForceGraphLocal {
                         .attr('opacity', 1);
 
                     enterNodeSelection
-                        .append('text')
+                        .selectAll<SVGTextElement, LocalDSINode>('text.label')
+                        .data(d => [d])
+                        .join('text')
+                        .attr('class', 'label')
                         .attr('fill', this.strokeColor)
                         .attr('stroke', d => colorScale(d.data.type))
                         .attr('stroke-width', 0.5)
-                        .attr('font-size', 20)
-                        .attr('opacity', 0)
-                        .text(d => d.data.name)
+                        .attr('font-size', 18)
                         .call(this.offsetLabels)
+                        .selectAll<SVGTSpanElement, LocalDSINode>('tspan')
+                        .data(d =>
+                            d.data.name.split(' ').reduce<string[][]>(
+                                (acc, curr) => {
+                                    if (acc[0].length < 4) {
+                                        acc[0].push(curr);
+                                        return acc;
+                                    } else {
+                                        if (acc.length === 1) {
+                                            acc.push([]);
+                                        }
+                                        acc[1].push(curr);
+                                        return acc;
+                                    }
+                                },
+                                [[]]
+                            )
+                        )
+                        .join('tspan')
+                        .attr('opacity', 0)
+                        .text(d => d.join(' '))
+                        .attr('dy', 16)
+                        .attr('x', 10)
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)
@@ -306,7 +330,7 @@ export default class D3ForceGraphLocal {
     };
 
     offsetLabels = (
-        selection: Selection<SVGTextElement, LocalDSINode, any, any>
+        selection: Selection<SVGTSpanElement, LocalDSINode, any, any>
     ) =>
         selection
             .attr('text-anchor', d =>
@@ -320,7 +344,7 @@ export default class D3ForceGraphLocal {
             .attr('y', d => {
                 if (d.id !== this.selectedNode?.id) {
                     // offset labels at top and bottom for non-selected nodes
-                    return -50 < d.x! && d.x! < 50 ? (d.y! > 0 ? 25 : -25) : 0;
+                    return -50 < d.x! && d.x! < 50 ? (d.y! > 0 ? 20 : -20) : 0;
                 }
                 return 0;
             });

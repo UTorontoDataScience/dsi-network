@@ -9,7 +9,7 @@ import {
     Unit,
     ModelEntity,
 } from '../types';
-import { getKeys, groupBy, uniqueBy } from '../util/util';
+import { getKeys, groupBy, toProperCase, uniqueBy } from '../util/util';
 
 const fetchPeopleData = async () => {
     return (await (await fetch('members-simplified.json')).json()) as Promise<
@@ -43,7 +43,7 @@ const makePerson = (type: 'primary' | 'secondary', person: PersonDataRaw) => {
     });
 
     ret.id = datatype.uuid();
-    ret.name = `${ret.first} ${ret.last}`;
+    ret.name = toProperCase(`${ret.first} ${ret.last}`);
     ret.type = 'person';
 
     return ret as Person;

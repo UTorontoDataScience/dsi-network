@@ -2,18 +2,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Autocomplete,
     Backdrop,
+    Box,
     capitalize,
     Fade,
     FormControl,
     Grid,
     IconButton,
-    InputLabel,
-    MenuItem,
     Paper,
-    Select,
     SelectChangeEvent,
     TextField,
-    Typography,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
 import { DetailCard } from '../../Components';
@@ -40,7 +37,7 @@ const ChartPage: React.FC = () => {
 
     const chartContainerRef = useCallback((node: HTMLDivElement) => {
         if (node) {
-            setContainerWidth(Math.min(node.clientWidth, 800));
+            setContainerWidth(Math.min(node.clientWidth, 1200));
         }
     }, []);
 
@@ -169,14 +166,6 @@ const ChartPage: React.FC = () => {
         }
     }, [model]);
 
-    const selectableRoots = useMemo(() => {
-        return (model || [])
-            .filter(m => ['campus', 'institution', 'network'].includes(m.type))
-            .sort((a, b) =>
-                a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
-            );
-    }, [model]);
-
     const resetKeywordInputs = useCallback(() => {
         setKeywordInputString('');
         setSelectedKeyword('');
@@ -221,17 +210,6 @@ const ChartPage: React.FC = () => {
         }
     };
 
-    const handleRootSelectChange = (e: SelectChangeEvent<string>) => {
-        setRoot(
-            (model || []).find(
-                m => e.target && getEntityId(m) === e.target.value
-            )
-        );
-        resetKeywordInputs();
-        resetNameSearchInputs();
-        resetSelections();
-    };
-
     const resetSelections = () => {
         setDetailSelection([]);
         setSelected([]);
@@ -273,25 +251,6 @@ const ChartPage: React.FC = () => {
                     spacing={5}
                 >
                     <Grid container direction="column" item spacing={2}>
-                        <Grid item>
-                            <FormControl fullWidth>
-                                <InputLabel htmlFor="root">Root</InputLabel>
-                                <Select
-                                    id="root"
-                                    onChange={handleRootSelectChange}
-                                    value={root ? getEntityId(root) : ''}
-                                >
-                                    {selectableRoots.map(m => (
-                                        <MenuItem
-                                            key={m.name}
-                                            value={getEntityId(m)}
-                                        >
-                                            <Typography>{m.name}</Typography>
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
                         <Grid item>
                             <FormControl fullWidth>
                                 {tree0 && tree && (
@@ -358,6 +317,20 @@ const ChartPage: React.FC = () => {
                     setSelected={setSelected}
                 />
             )}
+            <Box
+                className="tooltip"
+                sx={{
+                    backgroundColor: theme => theme.palette.grey[900],
+                    borderRadius: 1,
+                    color: theme => theme.palette.grey[50],
+                    fontSize: theme => theme.typography.body2.fontSize,
+                    maxWidth: '120px',
+                    opacity: 0,
+                    padding: 1,
+                    position: 'absolute',
+                    visibility: 'hidden',
+                }}
+            ></Box>
         </Grid>
     );
 };

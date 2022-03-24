@@ -1,11 +1,17 @@
-export const uniqueBy =
-    <T extends object, K extends keyof T>(field: K | ((arg: T) => string)) =>
-    (m: T, i: number, arr: T[]) =>
-        arr.findIndex((model: T) => {
-            return typeof field === 'function'
-                ? field(model) === field(m)
-                : model[field] === m[field];
-        }) === i;
+import { capitalize } from '@mui/material';
+
+export const compose =
+    <T>(...fns: ((arg: T) => any)[]) =>
+    (arg: T) => {
+        let res = arg;
+        for (let i = 0; i < fns.length; i++) {
+            res = fns[i](res);
+        }
+        return res;
+    };
+
+export const getKeys = <T extends object>(obj: T) =>
+    Object.keys(obj) as (keyof T)[];
 
 export function groupBy<T extends Record<string, any>, K extends keyof T>(
     items: T[],
@@ -23,17 +29,20 @@ export function groupBy<T extends Record<string, any>, K extends keyof T>(
     }, {});
 }
 
-export const getKeys = <T extends object>(obj: T) =>
-    Object.keys(obj) as (keyof T)[];
-
 export const snakeToSpace = (str: string) => str.replace(/_/g, ' ');
 
-export const compose =
-    <T>(...fns: ((arg: T) => any)[]) =>
-    (arg: T) => {
-        let res = arg;
-        for (let i = 0; i < fns.length; i++) {
-            res = fns[i](res);
-        }
-        return res;
-    };
+export const toProperCase = (str: string) =>
+    str
+        .trim()
+        .split(/\W+/)
+        .map(w => capitalize(w.toLowerCase()))
+        .join(' ');
+
+export const uniqueBy =
+    <T extends object, K extends keyof T>(field: K | ((arg: T) => string)) =>
+    (m: T, i: number, arr: T[]) =>
+        arr.findIndex((model: T) => {
+            return typeof field === 'function'
+                ? field(model) === field(m)
+                : model[field] === m[field];
+        }) === i;

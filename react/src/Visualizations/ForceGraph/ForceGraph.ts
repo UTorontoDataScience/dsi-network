@@ -127,13 +127,18 @@ const registerOnHover = (
 
 const showToolTip = (e: MouseEvent) => {
     select('.tooltip')
+        .style('opacity', 0)
         .text((e!.target as any).__data__.data.name)
-        .style('visibility', 'visible')
         .style('left', `${e.pageX + 15}px`)
-        .style('top', `${e.pageY - 25}px`);
+        .style('top', `${e.pageY - 25}px`)
+        .style('visibility', 'visible')
+        .transition()
+        .duration(300)
+        .style('opacity', 1);
 };
 
-const hideToolTip = () => select('.tooltip').style('visibility', 'hidden');
+const hideToolTip = () =>
+    select('.tooltip').style('visibility', 'hidden').style('opacity', 0);
 
 const registerDragHandler = (
     selection: DSINodeSelection,
@@ -177,20 +182,6 @@ const registerDragHandler = (
     return handler(selection);
 };
 
-const appendToolTip = () => {
-    select('body')
-        .append('div')
-        .attr('class', 'tooltip')
-        .style('position', 'absolute')
-        .style('background-color', 'black')
-        .style('padding', '5px')
-        .style('border-radius', '4px')
-        .style('font-size', '12px')
-        .style('max-width', '120px')
-        .style('visibility', 'hidden')
-        .style('color', 'white');
-};
-
 const getShouldShowLabel = (n: DSINode, tree: DSINode) =>
     n.descendants().length / tree.descendants().length > 0.05 &&
     ['campus', 'division', 'institution'].includes(n.data.type);
@@ -220,7 +211,7 @@ export default class D3ForceGraph {
         this.strokeColor = theme.palette.text.primary;
         this.tree = tree;
         this.w = 1000;
-        this.h = 825;
+        this.h = 725;
         this.svg = select(`#${selector}`)
             .append('svg')
             .attr('class', 'main')
@@ -293,8 +284,6 @@ export default class D3ForceGraph {
         });
 
         drawLegend(this.svg, this.fillColor, this.strokeColor, this.w, this.h);
-
-        appendToolTip();
     }
 
     private appendLinks = (forceLinks: DSIForceLinks) => {

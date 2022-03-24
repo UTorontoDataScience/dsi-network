@@ -167,7 +167,7 @@ export default class D3ForceGraphLocal {
                         .attr('opacity', 0)
                         .text(d => d.join(' '))
                         .attr('dy', 16)
-                        .attr('x', 10)
+                        .attr('x', 0)
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)

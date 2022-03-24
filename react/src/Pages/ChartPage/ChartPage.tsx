@@ -226,7 +226,11 @@ const ChartPage: React.FC = () => {
                         <ForceGraph
                             focusNode={focusNode}
                             onNodeClick={handleNodeClick}
-                            onBackgroundClick={() => setSelected([])}
+                            onBackgroundClick={() => {
+                                setDetailSelection([]);
+                                setSelected([]);
+                                setKeywordInputString('');
+                            }}
                             tree={tree}
                         />
                     )}

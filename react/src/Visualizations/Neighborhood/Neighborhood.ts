@@ -175,6 +175,7 @@ export default class D3ForceGraphLocal {
 
                     return enterNodeSelection;
                 },
+                /* our new central node */
                 update => {
                     update
                         .selectAll<SVGTextElement, LocalDSINode>('text')
@@ -204,7 +205,7 @@ export default class D3ForceGraphLocal {
             .append('g')
             .attr('class', 'go-back')
             .append('polyline')
-            .attr('points', '-10,20 0,10, 10,20')
+            .attr('points', '-10,35 0,25, 10,35')
             .attr('stroke', this.strokeColor)
             .attr('fill', 'none')
             .style('opacity', d => (d.hasParent ? 0.75 : 0))
@@ -342,11 +343,8 @@ export default class D3ForceGraphLocal {
                     : 'start'
             )
             .attr('y', d => {
-                if (d.id !== this.selectedNode?.id) {
-                    // offset labels at top and bottom for non-selected nodes
-                    return -50 < d.x! && d.x! < 50 ? (d.y! > 0 ? 20 : -20) : 0;
-                }
-                return 0;
+                // offset labels at top and bottom for non-selected nodes
+                return -50 < d.x! && d.x! < 50 ? (d.y! > 0 ? 20 : -20) : -10;
             });
 
     render = (tree: LocalDSINode, selectedNodeId: string) => {

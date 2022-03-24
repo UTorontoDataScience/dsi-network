@@ -13,12 +13,14 @@ interface ForceGraphProps {
     onBackgroundClick: () => void;
     onNodeClick: (node: DSINode) => void;
     tree: HierarchyNode<ModelEntity>;
+    focusNode?: DSINode;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({
     onBackgroundClick,
     onNodeClick,
     tree,
+    focusNode,
 }) => {
     const [Graph, setGraph] = useState<D3ForceGraph>();
 
@@ -57,6 +59,23 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
             Graph.onNodeClick = onNodeClick;
         }
     }, [Graph, onNodeClick]);
+
+    useEffect(() => {
+        if (!Graph) {
+            return;
+        }
+        if (focusNode) {
+            const nid = getEntityId(focusNode.data);
+            const positionedNode = Graph.simulation
+                .nodes()
+                .find(n => getEntityId(n.data) === nid);
+            if (positionedNode) {
+                Graph.zoomToNode(positionedNode);
+            }
+        } else {
+            Graph.resetZoom();
+        }
+    }, [Graph, focusNode]);
 
     useEffect(() => {
         /* replace graphic entirely when root changes */

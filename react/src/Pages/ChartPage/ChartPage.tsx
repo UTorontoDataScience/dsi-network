@@ -10,8 +10,10 @@ import {
     IconButton,
     List,
     ListItem,
+    ListItemButton,
     Paper,
     TextField,
+    Typography,
 } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
 import { DetailCard } from '../../Components';
@@ -27,6 +29,7 @@ const ChartPage: React.FC = () => {
     const [detailSelection, setDetailSelection] = useState<
         HierarchyNode<ModelEntity>[]
     >([]);
+    const [focusNode, setFocusNode] = useState<DSINode>();
     const [keywordInputString, setKeywordInputString] = useState('');
     const [localViewNode, setLocalViewNode] = useState<DSINode>();
     const [model, setModel] = useState<ModelEntity[]>();
@@ -181,6 +184,9 @@ const ChartPage: React.FC = () => {
                         p.keywords.toLowerCase().includes(value.toLowerCase())
                     )
                     .map(p => p.model.data)
+                    .sort((a, b) =>
+                        a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1
+                    )
             );
         }
     };
@@ -218,6 +224,7 @@ const ChartPage: React.FC = () => {
                 <Grid container justifyContent="flex-end" item xs={9}>
                     {tree && (
                         <ForceGraph
+                            focusNode={focusNode}
                             onNodeClick={handleNodeClick}
                             onBackgroundClick={() => setSelected([])}
                             tree={tree}
@@ -230,7 +237,7 @@ const ChartPage: React.FC = () => {
                     md={3}
                     container
                     direction="column"
-                    spacing={5}
+                    spacing={2}
                 >
                     <Grid container direction="column" item spacing={2}>
                         <Grid item>
@@ -279,22 +286,54 @@ const ChartPage: React.FC = () => {
                             </FormControl>
                         </Grid>
                     </Grid>
-                    <Grid item>
-                        {!!detailSelection.length && (
+
+                    {!!selected.length && !!keywordInputString && (
+                        <>
+                            <Grid item>
+                                <Typography
+                                    sx={{ fontWeight: 'bold' }}
+                                >{`${selected.length} results:`}</Typography>
+                            </Grid>
+                            <Grid item>
+                                <Box
+                                    sx={{
+                                        maxHeight: '250px',
+                                        overflowY: 'auto',
+                                    }}
+                                >
+                                    <List>
+                                        {selected.map(item => (
+                                            <ListItem key={item.name}>
+                                                <ListItemButton
+                                                    onClick={() => {
+                                                        const node = tree0!
+                                                            .descendants()
+                                                            .filter(
+                                                                m =>
+                                                                    m.data
+                                                                        .name ===
+                                                                    item.name
+                                                            );
+                                                        setDetailSelection(
+                                                            node
+                                                        );
+                                                        setFocusNode(node[0]);
+                                                    }}
+                                                >
+                                                    {item.name}
+                                                </ListItemButton>
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                </Box>
+                            </Grid>
+                        </>
+                    )}
+                    {!!detailSelection.length && (
+                        <Grid item>
                             <DetailCard nodes={detailSelection} />
-                        )}
-                    </Grid>
-                    <Grid item>
-                        {!!selected.length && !detailSelection.length && (
-                            <List>
-                                {selected.map(item => (
-                                    <ListItem key={item.name}>
-                                        {item.name}
-                                    </ListItem>
-                                ))}
-                            </List>
-                        )}
-                    </Grid>
+                        </Grid>
+                    )}
                 </Grid>
             </Grid>
             {tree0 && !!localViewNode && (

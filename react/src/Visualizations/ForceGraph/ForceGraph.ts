@@ -196,7 +196,7 @@ export default class D3ForceGraph {
     private onBackgroundClick: () => void;
     public onNodeClick: (node: DSINode) => void;
     private svg: Selection<SVGSVGElement, unknown, HTMLElement, unknown>;
-    private simulation: DSISimulation;
+    simulation: DSISimulation;
     private strokeColor: string;
     tree: DSINode;
     private w: number;

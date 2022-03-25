@@ -3,7 +3,7 @@ import { Box, useTheme } from '@mui/material';
 import { HierarchyNode } from 'd3-hierarchy';
 import { DSINode, EntityType, ModelEntity } from '../../types';
 import { getEntityId } from '../../util';
-import D3ForceGraph from './ForceGraph';
+import D3ForceGraph, { hideToolTip } from './ForceGraph';
 
 export interface SelectedModel {
     id: number;
@@ -70,7 +70,15 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
                 .nodes()
                 .find(n => getEntityId(n.data) === nid);
             if (positionedNode) {
-                Graph.zoomToNode(positionedNode);
+                hideToolTip(); // in case tooltip was 'forced' rather than triggered by hover
+                Graph.zoomToNode(
+                    positionedNode,
+                    0,
+                    Graph.forceToolTip.bind(
+                        null,
+                        getEntityId(positionedNode.data)
+                    )
+                );
             }
         } else {
             Graph.resetZoom();

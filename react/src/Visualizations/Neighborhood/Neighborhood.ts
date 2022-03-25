@@ -348,7 +348,9 @@ export default class D3ForceGraphLocal {
             });
 
     render = (tree: LocalDSINode, selectedNodeId: string) => {
-        this.selectedNode = tree.find(n => selectedNodeId === n.id)!;
+        this.selectedNode = tree.find(
+            n => selectedNodeId === getEntityId(n.data)
+        )!;
         this.setSelected(tree.descendants().map(d => d.data));
         this.buildChart(tree);
     };

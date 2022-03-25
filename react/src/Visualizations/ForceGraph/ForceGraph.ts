@@ -3,7 +3,7 @@ import { D3DragEvent, drag } from 'd3-drag';
 import { easeCubicIn } from 'd3-ease';
 import { HierarchyLink } from 'd3-hierarchy';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
-import { Selection, BaseType, select } from 'd3-selection';
+import { Selection, BaseType, select, ValueFn } from 'd3-selection';
 import {
     D3ZoomEvent,
     zoom,
@@ -106,8 +106,12 @@ const registerOnHover = (
     nodeSizeScale: ScaleLinear<number, number>
 ) => {
     selection
-        .on('mouseover', function (d: MouseEvent) {
-            showToolTip(d);
+        .on('mouseover', function (e: MouseEvent) {
+            showToolTip(
+                `${e.pageX + 15}px`,
+                `${e.pageY - 25}px`,
+                (e!.target as any).__data__.data.name
+            );
             select(this)
                 .selectAll<SVGCircleElement, DSINode>('circle')
                 .transition()
@@ -125,19 +129,19 @@ const registerOnHover = (
         });
 };
 
-const showToolTip = (e: MouseEvent) => {
+const showToolTip = (x: string, y: string, name: string) => {
     select('.tooltip')
         .style('opacity', 0)
-        .text((e!.target as any).__data__.data.name)
-        .style('left', `${e.pageX + 15}px`)
-        .style('top', `${e.pageY - 25}px`)
+        .text(name)
+        .style('left', x)
+        .style('top', y)
         .style('visibility', 'visible')
         .transition()
         .duration(300)
         .style('opacity', 1);
 };
 
-const hideToolTip = () =>
+export const hideToolTip = () =>
     select('.tooltip').style('visibility', 'hidden').style('opacity', 0);
 
 const registerDragHandler = (
@@ -440,6 +444,19 @@ export default class D3ForceGraph {
         );
     };
 
+    forceToolTip = (nodeId: string) => {
+        const node = this.svg
+            .selectAll<SVGGElement, DSINode>('g.circle-node')
+            .filter(n => getEntityId(n.data) === nodeId)
+            .node();
+
+        if (node) {
+            const { right: x, y } = node.getBoundingClientRect();
+            const name = (node as any).__data__.data.name;
+            showToolTip(`${x}px`, `${y}px`, name);
+        }
+    };
+
     private registerNodeClickBehavior = (selection: DSINodeSelection) =>
         selection.on('click', (e, node) => {
             e.stopPropagation();
@@ -561,9 +578,18 @@ export default class D3ForceGraph {
         }
     };
 
-    zoomToNode = (node: DSINode, delay = 0) =>
+    zoomToNode = (
+        node: DSINode,
+        delay = 0,
+        cb?: ValueFn<SVGSVGElement, unknown, unknown>
+    ) => {
+        const transition = this.svg.transition().delay(delay).duration(750);
+        if (cb) {
+            transition.on('end', cb);
+        }
         this.globalZoom.transform(
-            this.svg.transition().delay(delay).duration(750),
+            transition,
             zoomIdentity.translate(0, 0).scale(3).translate(-node.x!, -node.y!)
         );
+    };
 }

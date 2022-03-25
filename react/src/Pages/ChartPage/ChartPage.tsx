@@ -24,6 +24,7 @@ import { getEntityId, makeTree, mapTree, stratifyFn } from '../../util';
 import { DSINode, isPerson, ModelEntity } from '../../types';
 import { CloseIcon } from '../../Icons';
 import { LocalDSINode } from '../../Visualizations/Neighborhood/NeighborhoodComponent';
+import { hideToolTip } from '../../Visualizations/ForceGraph/ForceGraph';
 
 const ChartPage: React.FC = () => {
     const [detailSelection, setDetailSelection] = useState<
@@ -230,6 +231,7 @@ const ChartPage: React.FC = () => {
                                 setDetailSelection([]);
                                 setSelected([]);
                                 setKeywordInputString('');
+                                hideToolTip();
                             }}
                             tree={tree}
                         />

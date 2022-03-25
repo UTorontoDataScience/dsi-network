@@ -36,28 +36,35 @@ const NeighborhoodComponent: React.FC<NeighborhoodProps> = ({
         );
     }, [tree]);
 
-    const root = useMemo(
-        () => tree.find(n => getEntityId(n.data) === selectedNodeId)!,
-        [selectedNodeId, tree]
-    );
+    /* if a leaf was selected, make its parent the central node, so we see siblings */
+    const hub = useMemo(() => {
+        const selected = tree.find(
+            n => getEntityId(n.data) === selectedNodeId
+        )!;
+        return selected.children ? selected : selected.parent!;
+    }, [selectedNodeId, tree]);
 
+    /* build new tree with at least two and at most three generations */
     const neighborhood = useMemo(() => {
-        if (root) {
-            const parent = root?.parent?.data || [];
-            const children = (root.children || []).map(d => d.data);
+        if (hub) {
+            const grandparent = hub.parent?.data;
+            const parent = hub.data;
+            const children = hub.children!.map(d => d.data);
 
-            const neighborhood = makeTree(
-                [root.data].concat(parent).concat(children),
-                root?.parent?.data || root.data
+            const newTree = makeTree(
+                [parent]
+                    .concat(children)
+                    .concat(grandparent ? grandparent : []),
+                grandparent ? grandparent : parent
             );
 
             /* replace children with flag, so visualization knows there is additional depth */
-            return mapTree(neighborhood, t => ({
+            return mapTree(newTree, t => ({
                 ...t,
                 hasChildren: treeMap[t.id!],
             })) as LocalDSINode;
         }
-    }, [root, treeMap]);
+    }, [hub, treeMap]);
 
     const targetId = 'local-target';
 
@@ -70,23 +77,16 @@ const NeighborhoodComponent: React.FC<NeighborhoodProps> = ({
                 setSelected,
                 theme
             );
-            _graph.render(neighborhood, selectedNodeId);
+            _graph.render(neighborhood, getEntityId(hub.data));
             setChart(_graph);
         } else if (
             neighborhood &&
             Chart &&
-            selectedNodeId != getEntityId(Chart.selectedNode!.data!)
+            getEntityId(hub.data) != getEntityId(Chart.selectedNode!.data!)
         ) {
-            Chart.render(neighborhood, selectedNodeId);
+            Chart.render(neighborhood, getEntityId(hub.data));
         }
-    }, [
-        Chart,
-        resetViewNode,
-        neighborhood,
-        selectedNodeId,
-        setSelected,
-        theme,
-    ]);
+    }, [Chart, resetViewNode, neighborhood, hub, setSelected, theme]);
 
     return (
         <Box

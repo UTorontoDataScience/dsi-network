@@ -36,18 +36,21 @@ type DSINodeSelection = Selection<SVGGElement, DSINode, BaseType, unknown>;
 const getNodeSizeScale = (maxNodes: number) =>
     scaleLinear().domain([0, maxNodes]).range([3.25, 12]);
 
-const getLabelOffsetScale = (maxDistance: number) =>
+const getLabelOffsetScaleY = (maxDistance: number) =>
     scaleLinear().domain([0, maxDistance]).range([0, 50]);
+
+const getLabelOffsetScaleX = (maxDistance: number) =>
+    scaleLinear().domain([0, maxDistance]).range([0, 150]);
 
 const getLabelXOffset = (x: number, y: number) => {
     const distance = Math.sqrt(x ** 2 + y ** 2);
-    const distanceScaled = getLabelOffsetScale(500)(distance);
-    return x > 0 ? -distanceScaled : distanceScaled;
+    const distanceScaled = getLabelOffsetScaleX(500)(distance);
+    return x > 0 ? distanceScaled : -distanceScaled;
 };
 
 const getLabelYOffset = (x: number, y: number) => {
     const distance = Math.sqrt(x ** 2 + y ** 2);
-    const distanceScaled = getLabelOffsetScale(500)(distance);
+    const distanceScaled = getLabelOffsetScaleY(500)(distance);
     return y > 0 ? -distanceScaled : distanceScaled;
 };
 
@@ -420,7 +423,7 @@ export default class D3ForceGraph {
                     'charge',
                     forceManyBody()
                         .strength(-40)
-                        .distanceMax(w / 3)
+                        .distanceMax(w / 4)
                 )
                 .force(
                     'links',
@@ -432,14 +435,14 @@ export default class D3ForceGraph {
                                     desc =>
                                         desc.depth > (d.target as DSINode).depth
                                 )
-                                ? w / 6
-                                : w / 28
+                                ? w / 7
+                                : w / 50
                         )
                         .strength(1)
                 )
                 .force('collision', forceCollide().radius(5))
                 // keep the visualization centered on the page
-                .force('center', forceCenter(0, 0))
+                .force('center', forceCenter(0, -25))
                 .velocityDecay(0.1)
         );
     };

@@ -2,7 +2,7 @@ import { Theme } from '@mui/material';
 import { easeLinear, easeQuadIn } from 'd3-ease';
 import { select, Selection } from 'd3-selection';
 import { transition } from 'd3-transition';
-import { ModelEntity } from '../../types';
+import { isPerson, ModelEntity } from '../../types';
 import { getEntityId, makeTree } from '../../util';
 import { colorScale, drawLegend } from '../shared';
 import { LocalDSINode } from './NeighborhoodComponent';
@@ -30,6 +30,8 @@ export default class D3ForceGraphLocal {
     >;
     private resetViewNode: (node: LocalDSINode) => void;
     selectedNode: LocalDSINode | null = null;
+    private setPersonDetail: (node: LocalDSINode) => void;
+    /* for keeping main visualization in sync with neighborhood view */
     private setSelected: (models: ModelEntity[]) => void;
     private strokeColor: string;
     private svg: Selection<SVGGElement, unknown, HTMLElement, unknown>;
@@ -37,10 +39,12 @@ export default class D3ForceGraphLocal {
     constructor(
         resetViewNode: (node: LocalDSINode) => void,
         selector: string,
+        setPersonDetail: (node: LocalDSINode) => void,
         setSelected: (models: ModelEntity[]) => void,
         theme: Theme
     ) {
         this.resetViewNode = resetViewNode;
+        this.setPersonDetail = setPersonDetail;
         this.setSelected = setSelected;
         this.strokeColor = theme.palette.text.primary;
         this.fillColor = theme.palette.background.paper;
@@ -95,9 +99,7 @@ export default class D3ForceGraphLocal {
                     const enterNodeSelection = enter
                         .append('g')
                         .attr('class', 'circle-node')
-                        .style('cursor', d =>
-                            d.hasChildren ? 'pointer' : null
-                        );
+                        .style('cursor', 'pointer');
 
                     enterNodeSelection
                         .transition()
@@ -194,6 +196,8 @@ export default class D3ForceGraphLocal {
                     // make parent selected node
                 } else if (d.id === this.selectedNode?.id && d.parent) {
                     this.resetViewNode(d.parent);
+                } else if (isPerson(d.data)) {
+                    this.setPersonDetail(d);
                 }
             });
     };
@@ -235,9 +239,7 @@ export default class D3ForceGraphLocal {
                     const enterSelection = enter
                         .append('g')
                         .attr('class', 'circle-node')
-                        .style('cursor', d =>
-                            d.hasChildren ? 'pointer' : null
-                        );
+                        .style('cursor', 'pointer');
 
                     enterSelection
                         .append('circle')

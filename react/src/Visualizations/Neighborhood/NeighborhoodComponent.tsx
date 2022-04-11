@@ -12,6 +12,7 @@ export interface LocalDSINode extends DSINode {
 interface NeighborhoodProps {
     resetViewNode: (node: LocalDSINode) => void;
     selectedNodeId: string;
+    setPersonDetail: (models: LocalDSINode) => void;
     setSelected: (models: ModelEntity[]) => void;
     tree: DSINode;
 }
@@ -19,6 +20,7 @@ interface NeighborhoodProps {
 const NeighborhoodComponent: React.FC<NeighborhoodProps> = ({
     resetViewNode,
     selectedNodeId,
+    setPersonDetail,
     setSelected,
     tree,
 }) => {
@@ -74,6 +76,7 @@ const NeighborhoodComponent: React.FC<NeighborhoodProps> = ({
             const _graph = new Neighborhood(
                 resetViewNode,
                 targetId,
+                setPersonDetail,
                 setSelected,
                 theme
             );
@@ -86,7 +89,15 @@ const NeighborhoodComponent: React.FC<NeighborhoodProps> = ({
         ) {
             Chart.render(neighborhood, getEntityId(hub.data));
         }
-    }, [Chart, resetViewNode, neighborhood, hub, setSelected, theme]);
+    }, [
+        Chart,
+        resetViewNode,
+        neighborhood,
+        hub,
+        setPersonDetail,
+        setSelected,
+        theme,
+    ]);
 
     return (
         <Box

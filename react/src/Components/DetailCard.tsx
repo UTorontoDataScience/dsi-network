@@ -8,6 +8,7 @@ import {
     Link,
     Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/system';
 import { HierarchyNode } from 'd3-hierarchy';
 import { isPeopleNodes, ModelEntity, Person } from '../types';
 import { compose, getEntityId, snakeToSpace } from '../util';
@@ -23,10 +24,15 @@ interface DetailCardProps {
 }
 
 const DetailCard: React.FC<DetailCardProps> = ({ nodes }) => {
+    const theme = useTheme();
+
     return (
         <Card variant="elevation">
             <Box padding={2}>
-                <Typography color="primary" variant="h4">
+                <Typography
+                    color={theme.palette.mode === 'light' ? 'primary' : 'white'}
+                    variant="h4"
+                >
                     {nodes[0].data.name}
                 </Typography>
                 <CardContent sx={{ padding: 0 }}>

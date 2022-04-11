@@ -97,7 +97,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [tree]);
 
-    return <Box padding={5} width="100%" id={targetId} />;
+    return <Box width="100%" id={targetId} />;
 };
 
 export default ForceGraph;

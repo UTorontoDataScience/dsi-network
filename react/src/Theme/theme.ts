@@ -3,10 +3,10 @@ import { createTheme } from '@mui/material/styles';
 const getTheme = (darkMode?: boolean) => {
     const mainColors = {
         primary: {
-            main: '#0052cc',
+            main: 'rgb(0, 42, 92)',
         },
         secondary: {
-            main: '#edf2ff',
+            main: 'rgb(1, 30, 66)',
         },
     };
 
@@ -21,6 +21,15 @@ const getTheme = (darkMode?: boolean) => {
             mode: darkMode ? 'dark' : 'light',
             ...(darkMode ? darkPalette : {}),
             ...mainColors,
+        },
+        components: {
+            MuiLink: {
+                styleOverrides: {
+                    root: {
+                        color: darkMode ? 'white' : mainColors.primary.main,
+                    },
+                },
+            },
         },
     });
 };

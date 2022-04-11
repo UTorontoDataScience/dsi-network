@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import styled from '@emotion/styled';
 import {
     Autocomplete,
     Backdrop,
     Box,
     capitalize,
+    Divider,
     Fade,
     FormControl,
     Grid,
     IconButton,
+    Link,
     List,
     ListItem,
     ListItemButton,
@@ -212,7 +215,7 @@ const ChartPage: React.FC = () => {
     };
 
     return (
-        <Grid container sx={{ marginTop: 3 }} direction="column" spacing={3}>
+        <Grid container sx={{ marginTop: 1 }} direction="column" spacing={3}>
             <Grid
                 container
                 justifyContent="center"
@@ -222,20 +225,93 @@ const ChartPage: React.FC = () => {
                 md={9}
                 spacing={3}
             >
-                <Grid container justifyContent="flex-end" item xs={9}>
-                    {tree && (
-                        <ForceGraph
-                            focusNode={focusNode}
-                            onNodeClick={handleNodeClick}
-                            onBackgroundClick={() => {
-                                setDetailSelection([]);
-                                setSelected([]);
-                                setKeywordInputString('');
-                                hideToolTip();
-                            }}
-                            tree={tree}
-                        />
-                    )}
+                <Grid item spacing={1} container direction="column">
+                    <Grid item>
+                        <Paragraph>
+                            The goal of the Data Sciences Institute (DSI) is to
+                            accelerate the impact of data sciences across
+                            disciplines and facilitate community connections.
+                            This interactive visualization allows for a search
+                            of DSI members and their research expertise, located
+                            within the University of Toronto and external
+                            funding partner institutions. The aim is to provide
+                            a mechanism that allows users to connect and search
+                            for data science research expertise. Please contact{' '}
+                            <Link href="mailto:info.dsi@utoronto.ca">
+                                info.dsi@utoronto.ca
+                            </Link>{' '}
+                            if you have any modifications/additions for the
+                            information contained in the visualization.
+                        </Paragraph>
+                    </Grid>
+                    <Grid item>
+                        <Divider />
+                    </Grid>
+                </Grid>
+                <Grid container item xs={9} direction="column">
+                    <Grid
+                        item
+                        container
+                        direction="row"
+                        wrap="nowrap"
+                        spacing={2}
+                    >
+                        <Grid item container direction="column">
+                            <Typography sx={{ fontWeight: 'bold' }}>
+                                To use the visualization:
+                            </Typography>
+                            <List disablePadding dense>
+                                <ListItem>
+                                    <Paragraph>
+                                        Hover over a node to view details.
+                                    </Paragraph>
+                                </ListItem>
+                                <ListItem>
+                                    <Paragraph>Scroll to Zoom.</Paragraph>
+                                </ListItem>
+                                <ListItem>
+                                    <Paragraph>
+                                        Click a node to view details or drag to
+                                        move it.
+                                    </Paragraph>
+                                </ListItem>
+                            </List>
+                        </Grid>
+                        <Grid item container direction="column">
+                            <Typography sx={{ fontWeight: 'bold' }}>
+                                To search:
+                            </Typography>
+                            <List disablePadding dense>
+                                <ListItem>
+                                    <Paragraph>
+                                        Use the name search to find a person or
+                                        a program within the network.
+                                    </Paragraph>
+                                </ListItem>
+                                <ListItem>
+                                    <Paragraph>
+                                        Use the keyword search to find resources
+                                        based on subject matter or expertise
+                                    </Paragraph>
+                                </ListItem>
+                            </List>
+                        </Grid>
+                    </Grid>
+                    <Grid item>
+                        {tree && (
+                            <ForceGraph
+                                focusNode={focusNode}
+                                onNodeClick={handleNodeClick}
+                                onBackgroundClick={() => {
+                                    setDetailSelection([]);
+                                    setSelected([]);
+                                    setKeywordInputString('');
+                                    hideToolTip();
+                                }}
+                                tree={tree}
+                            />
+                        )}
+                    </Grid>
                 </Grid>
                 <Grid
                     item
@@ -245,54 +321,51 @@ const ChartPage: React.FC = () => {
                     direction="column"
                     spacing={2}
                 >
-                    <Grid container direction="column" item spacing={2}>
-                        <Grid item>
-                            <FormControl fullWidth>
-                                {tree0 && tree && (
-                                    <ChartPageAutocomplete
-                                        label="Search by name or program"
-                                        getOptionLabel={m => capitalize(m)}
-                                        inputValue={nameSearchInputString}
-                                        onInputChange={(value: string) => {
-                                            setNameSearchInputString(value);
-                                            resetKeywordInputs();
-                                            if (!value) {
-                                                setSelected([]);
-                                            }
-                                        }}
-                                        onSelect={handleNameSearchSelect}
-                                        options={names}
-                                        tree={tree}
-                                        value={nameSearchInputString}
-                                    />
-                                )}
-                            </FormControl>
-                        </Grid>
-                        <Grid item>
-                            <FormControl fullWidth>
-                                {tree && keywords && (
-                                    <ChartPageAutocomplete
-                                        getOptionLabel={o => capitalize(o)}
-                                        inputValue={keywordInputString}
-                                        label="Search by keyword"
-                                        onInputChange={(value: string) => {
-                                            setKeywordInputString(value);
-                                            resetNameSearch();
-                                            setDetailSelection([]);
-                                            if (!value) {
-                                                setSelected([]);
-                                            }
-                                        }}
-                                        onSelect={handleKeywordSearchSelect}
-                                        options={keywords}
-                                        tree={tree}
-                                        value={selectedKeyword}
-                                    />
-                                )}
-                            </FormControl>
-                        </Grid>
+                    <Grid item>
+                        <FormControl fullWidth>
+                            {tree0 && tree && (
+                                <ChartPageAutocomplete
+                                    label="Search by name or program"
+                                    getOptionLabel={m => capitalize(m)}
+                                    inputValue={nameSearchInputString}
+                                    onInputChange={(value: string) => {
+                                        setNameSearchInputString(value);
+                                        resetKeywordInputs();
+                                        if (!value) {
+                                            setSelected([]);
+                                        }
+                                    }}
+                                    onSelect={handleNameSearchSelect}
+                                    options={names}
+                                    tree={tree}
+                                    value={nameSearchInputString}
+                                />
+                            )}
+                        </FormControl>
                     </Grid>
-
+                    <Grid item>
+                        <FormControl fullWidth>
+                            {tree && keywords && (
+                                <ChartPageAutocomplete
+                                    getOptionLabel={o => capitalize(o)}
+                                    inputValue={keywordInputString}
+                                    label="Search by keyword"
+                                    onInputChange={(value: string) => {
+                                        setKeywordInputString(value);
+                                        resetNameSearch();
+                                        setDetailSelection([]);
+                                        if (!value) {
+                                            setSelected([]);
+                                        }
+                                    }}
+                                    onSelect={handleKeywordSearchSelect}
+                                    options={keywords}
+                                    tree={tree}
+                                    value={selectedKeyword}
+                                />
+                            )}
+                        </FormControl>
+                    </Grid>
                     {!!selected.length && !!keywordInputString && (
                         <>
                             <Grid item>
@@ -350,6 +423,13 @@ const ChartPage: React.FC = () => {
                         setLocalViewNode(undefined);
                         resetKeywordInputs();
                         resetNameSearch();
+                    }}
+                    setPersonDetail={(personNode: LocalDSINode) => {
+                        setLocalViewNode(undefined);
+                        resetKeywordInputs();
+                        setNameSearchInputString(personNode.data.name);
+                        setDetailSelection([personNode]);
+                        setSelected([personNode.data]);
                     }}
                     resetViewNode={setLocalViewNode}
                     setSelected={setSelected}
@@ -422,8 +502,9 @@ export default ChartPage;
 
 interface LocalViewProps {
     nodeId: string;
-    resetViewNode: (node: LocalDSINode) => void;
     onClose: () => void;
+    resetViewNode: (node: LocalDSINode) => void;
+    setPersonDetail: (node: LocalDSINode) => void;
     setSelected: (models: ModelEntity[]) => void;
     tree: DSINode;
 }
@@ -431,6 +512,7 @@ interface LocalViewProps {
 const LocalView: React.FC<LocalViewProps> = ({
     nodeId,
     onClose,
+    setPersonDetail,
     resetViewNode,
     setSelected,
     tree,
@@ -460,6 +542,7 @@ const LocalView: React.FC<LocalViewProps> = ({
                 <Neighborhood
                     resetViewNode={resetViewNode}
                     selectedNodeId={nodeId}
+                    setPersonDetail={setPersonDetail}
                     setSelected={setSelected}
                     tree={tree.copy()}
                 />
@@ -467,3 +550,11 @@ const LocalView: React.FC<LocalViewProps> = ({
         </Backdrop>
     </Fade>
 );
+
+const Paragraph = styled.p`
+    font-size: 16px;
+    line-height: 27.2px;
+    font-family: Helvetica;
+    font-weight: 300;
+    margin: 0;
+`;

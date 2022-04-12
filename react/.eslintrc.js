@@ -9,8 +9,10 @@ module.exports = {
         'plugin:react/recommended',
         'plugin:@typescript-eslint/recommended',
     ],
-    react: {
-        version: 'latest',
+    settings: {
+        react: {
+            version: 'latest',
+        },
     },
     parser: '@typescript-eslint/parser',
     parserOptions: {

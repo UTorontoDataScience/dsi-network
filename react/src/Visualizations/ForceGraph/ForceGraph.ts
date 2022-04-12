@@ -351,7 +351,7 @@ export default class D3ForceGraph {
                         .style('user-select', 'none')
                         .transition()
                         .duration(500)
-                        .style('opacity', 0.5);
+                        .style('opacity', 0.8);
 
                     outerContainer.call(registerDragHandler, this.simulation);
 

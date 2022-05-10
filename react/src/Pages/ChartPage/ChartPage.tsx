@@ -222,7 +222,6 @@ const ChartPage: React.FC = () => {
                 direction="row"
                 item
                 xs={12}
-                md={9}
                 spacing={3}
             >
                 <Grid item spacing={1} container direction="column">
@@ -248,56 +247,50 @@ const ChartPage: React.FC = () => {
                         <Divider />
                     </Grid>
                 </Grid>
-                <Grid container item xs={9} direction="column">
-                    <Grid
-                        item
-                        container
-                        direction="row"
-                        wrap="nowrap"
-                        spacing={2}
-                    >
-                        <Grid item container direction="column">
-                            <Typography sx={{ fontWeight: 'bold' }}>
-                                To use the visualization:
-                            </Typography>
-                            <List disablePadding dense>
-                                <ListItem>
-                                    <Paragraph>
-                                        Hover over a node to view details.
-                                    </Paragraph>
-                                </ListItem>
-                                <ListItem>
-                                    <Paragraph>Scroll to Zoom.</Paragraph>
-                                </ListItem>
-                                <ListItem>
-                                    <Paragraph>
-                                        Click a node to view details or drag to
-                                        move it.
-                                    </Paragraph>
-                                </ListItem>
-                            </List>
-                        </Grid>
-                        <Grid item container direction="column">
-                            <Typography sx={{ fontWeight: 'bold' }}>
-                                To search:
-                            </Typography>
-                            <List disablePadding dense>
-                                <ListItem>
-                                    <Paragraph>
-                                        Use the name search to find a person or
-                                        a program within the network.
-                                    </Paragraph>
-                                </ListItem>
-                                <ListItem>
-                                    <Paragraph>
-                                        Use the keyword search to find resources
-                                        based on subject matter or expertise
-                                    </Paragraph>
-                                </ListItem>
-                            </List>
-                        </Grid>
+                <Grid item container direction="row" wrap="nowrap" spacing={2}>
+                    <Grid item container direction="column">
+                        <Typography sx={{ fontWeight: 'bold' }}>
+                            To use the visualization:
+                        </Typography>
+                        <List disablePadding dense>
+                            <ListItem>
+                                <Paragraph>
+                                    Hover over a node to view details.
+                                </Paragraph>
+                            </ListItem>
+                            <ListItem>
+                                <Paragraph>Scroll to Zoom.</Paragraph>
+                            </ListItem>
+                            <ListItem>
+                                <Paragraph>
+                                    Click a node to view details or drag to move
+                                    it.
+                                </Paragraph>
+                            </ListItem>
+                        </List>
                     </Grid>
-                    <Grid item>
+                    <Grid item container direction="column">
+                        <Typography sx={{ fontWeight: 'bold' }}>
+                            To search:
+                        </Typography>
+                        <List disablePadding dense>
+                            <ListItem>
+                                <Paragraph>
+                                    Use the name search to find a person or a
+                                    program within the network.
+                                </Paragraph>
+                            </ListItem>
+                            <ListItem>
+                                <Paragraph>
+                                    Use the keyword search to find resources
+                                    based on subject matter or expertise
+                                </Paragraph>
+                            </ListItem>
+                        </List>
+                    </Grid>
+                </Grid>
+                <Grid container spacing={2} item direction="row">
+                    <Grid item xs={9}>
                         {tree && (
                             <ForceGraph
                                 focusNode={focusNode}
@@ -312,109 +305,105 @@ const ChartPage: React.FC = () => {
                             />
                         )}
                     </Grid>
-                </Grid>
-                <Grid
-                    item
-                    xs={12}
-                    md={3}
-                    container
-                    direction="column"
-                    spacing={2}
-                >
-                    <Grid item>
-                        <FormControl fullWidth>
-                            {tree0 && tree && (
-                                <ChartPageAutocomplete
-                                    label="Search by name or program"
-                                    getOptionLabel={m => capitalize(m)}
-                                    inputValue={nameSearchInputString}
-                                    onInputChange={(value: string) => {
-                                        setNameSearchInputString(value);
-                                        resetKeywordInputs();
-                                        if (!value) {
-                                            setSelected([]);
-                                        }
-                                    }}
-                                    onSelect={handleNameSearchSelect}
-                                    options={names}
-                                    tree={tree}
-                                    value={nameSearchInputString}
-                                />
-                            )}
-                        </FormControl>
-                    </Grid>
-                    <Grid item>
-                        <FormControl fullWidth>
-                            {tree && keywords && (
-                                <ChartPageAutocomplete
-                                    getOptionLabel={o => capitalize(o)}
-                                    inputValue={keywordInputString}
-                                    label="Search by keyword"
-                                    onInputChange={(value: string) => {
-                                        setKeywordInputString(value);
-                                        resetNameSearch();
-                                        setDetailSelection([]);
-                                        if (!value) {
-                                            setSelected([]);
-                                        }
-                                    }}
-                                    onSelect={handleKeywordSearchSelect}
-                                    options={keywords}
-                                    tree={tree}
-                                    value={selectedKeyword}
-                                />
-                            )}
-                        </FormControl>
-                    </Grid>
-                    {!!selected.length && !!keywordInputString && (
-                        <>
-                            <Grid item>
-                                <Typography
-                                    sx={{ fontWeight: 'bold' }}
-                                >{`${selected.length} results:`}</Typography>
-                            </Grid>
-                            <Grid item>
-                                <Box
-                                    sx={{
-                                        maxHeight: '250px',
-                                        overflowY: 'auto',
-                                    }}
-                                >
-                                    <List>
-                                        {selected.map(item => (
-                                            <ListItem key={item.name}>
-                                                <ListItemButton
-                                                    onClick={() => {
-                                                        const node = tree0!
-                                                            .descendants()
-                                                            .filter(
-                                                                m =>
-                                                                    m.data
-                                                                        .name ===
-                                                                    item.name
-                                                            );
-                                                        setDetailSelection(
-                                                            node
-                                                        );
-                                                        setFocusNode(node[0]);
-                                                    }}
-                                                >
-                                                    {item.name}
-                                                </ListItemButton>
-                                            </ListItem>
-                                        ))}
-                                    </List>
-                                </Box>
-                            </Grid>
-                        </>
-                    )}
-                    {!!detailSelection.length && (
+                    <Grid container xs={3} direction="column" spacing={2} item>
                         <Grid item>
-                            <DetailCard nodes={detailSelection} />
+                            <FormControl fullWidth>
+                                {tree0 && tree && (
+                                    <ChartPageAutocomplete
+                                        label="Search by name or program"
+                                        getOptionLabel={m => capitalize(m)}
+                                        inputValue={nameSearchInputString}
+                                        onInputChange={(value: string) => {
+                                            setNameSearchInputString(value);
+                                            resetKeywordInputs();
+                                            if (!value) {
+                                                setSelected([]);
+                                            }
+                                        }}
+                                        onSelect={handleNameSearchSelect}
+                                        options={names}
+                                        tree={tree}
+                                        value={nameSearchInputString}
+                                    />
+                                )}
+                            </FormControl>
                         </Grid>
-                    )}
+                        <Grid item>
+                            <FormControl fullWidth>
+                                {tree && keywords && (
+                                    <ChartPageAutocomplete
+                                        getOptionLabel={o => capitalize(o)}
+                                        inputValue={keywordInputString}
+                                        label="Search by keyword"
+                                        onInputChange={(value: string) => {
+                                            setKeywordInputString(value);
+                                            resetNameSearch();
+                                            setDetailSelection([]);
+                                            if (!value) {
+                                                setSelected([]);
+                                            }
+                                        }}
+                                        onSelect={handleKeywordSearchSelect}
+                                        options={keywords}
+                                        tree={tree}
+                                        value={selectedKeyword}
+                                    />
+                                )}
+                            </FormControl>
+                        </Grid>
+                        {!!selected.length && !!keywordInputString && (
+                            <>
+                                <Grid item>
+                                    <Typography
+                                        sx={{ fontWeight: 'bold' }}
+                                    >{`${selected.length} results:`}</Typography>
+                                </Grid>
+                                <Grid item>
+                                    <Box
+                                        sx={{
+                                            maxHeight: '250px',
+                                            overflowY: 'auto',
+                                        }}
+                                    >
+                                        <List>
+                                            {selected.map(item => (
+                                                <ListItem key={item.name}>
+                                                    <ListItemButton
+                                                        onClick={() => {
+                                                            const node = tree0!
+                                                                .descendants()
+                                                                .filter(
+                                                                    m =>
+                                                                        m.data
+                                                                            .name ===
+                                                                        item.name
+                                                                );
+                                                            setDetailSelection(
+                                                                node
+                                                            );
+                                                            setFocusNode(
+                                                                node[0]
+                                                            );
+                                                        }}
+                                                    >
+                                                        {item.name}
+                                                    </ListItemButton>
+                                                </ListItem>
+                                            ))}
+                                        </List>
+                                    </Box>
+                                </Grid>
+                            </>
+                        )}
+                        {!!detailSelection.length && (
+                            <Grid item>
+                                <DetailCard nodes={detailSelection} />
+                            </Grid>
+                        )}
+                    </Grid>
                 </Grid>
             </Grid>
+
             {tree0 && !!localViewNode && (
                 <LocalView
                     tree={tree0}

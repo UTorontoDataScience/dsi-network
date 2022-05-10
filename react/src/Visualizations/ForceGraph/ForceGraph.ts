@@ -454,9 +454,9 @@ export default class D3ForceGraph {
             .node();
 
         if (node) {
-            const { right: x, y } = node.getBoundingClientRect();
+            const { right, top } = node.getBoundingClientRect();
             const name = (node as any).__data__.data.name;
-            showToolTip(`${x}px`, `${y}px`, name);
+            showToolTip(`${right}px`, `${top}px`, name);
         }
     };
 
